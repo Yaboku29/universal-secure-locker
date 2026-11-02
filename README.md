@@ -1,79 +1,80 @@
 # Universal Secure Locker
 
-Universal Secure Locker adalah rancangan aplikasi brankas digital desktop yang menyimpan catatan dan file secara lokal dalam bentuk terenkripsi. Proyek ini ditujukan sebagai prototipe Tugas Akhir Kriptografi, dengan antarmuka web lokal dan engine keamanan berbasis Python.
+Universal Secure Locker adalah prototipe aplikasi desktop brankas digital lokal untuk proyek Tugas Akhir Kriptografi.
 
-> **Status:** Dokumen perancangan/prototipe. Fitur autentikasi, enkripsi, dan pemulihan perlu diuji serta ditinjau sebelum digunakan untuk menyimpan data penting.
+## Fokus Tahap Awal
+
+Versi ini berfokus pada tampilan dasar dan uji alur autentikasi dua kunci:
+
+1. **USB Flashdisk** — aplikasi mendaftarkan file token rahasia `USL-USB-KEY.txt` di flashdisk dan menyimpan hash token di komputer.
+2. **Biometrik wajah** — pengguna mendaftarkan 12 sampel wajah dari webcam. OpenCV mendeteksi wajah dan membuat model pengenal LBPH lokal.
+
+Kedua kunci wajib terdaftar dan lolos verifikasi sebelum dashboard demonstrasi terbuka. Dashboard saat ini hanya menunjukkan bahwa alur akses berhasil; fitur catatan, file locker, dan enkripsi belum dibuat.
 
 ## Stack yang Dipilih
 
-Stack berikut dipilih agar aplikasi tidak memerlukan server terpisah, framework frontend besar, atau basis data eksternal.
-
-| Bagian | Teknologi | Alasan |
+| Bagian | Teknologi | Penggunaan |
 |---|---|---|
-| Desktop dan penghubung UI | **PyWebView** | Membuka UI HTML dalam jendela desktop dan menghubungkan JavaScript ke fungsi Python tanpa API server lokal. |
-| Antarmuka | **HTML5, CSS3, JavaScript vanilla** | Ringan, mudah dipelajari, dan tidak membutuhkan proses build frontend. |
-| Engine aplikasi | **Python 3.11 atau lebih baru** | Ekosistem pustaka kriptografi dan pengolahan file yang matang. |
-| Enkripsi | **`cryptography` (AES-256-GCM)** | Enkripsi terautentikasi untuk menjaga kerahasiaan sekaligus mendeteksi perubahan ciphertext. |
-| Hash password | **`argon2-cffi` (Argon2id)** | Hash password yang dirancang untuk memperlambat serangan tebak password offline. |
-| Database | **SQLite melalui modul bawaan `sqlite3`** | Penyimpanan lokal tanpa server dan tanpa dependensi database tambahan. |
-| Pengolahan gambar | **Pillow** | Membaca dan mengubah gambar untuk eksperimen steganografi LSB. |
-| Autentikasi wajah (opsional) | **OpenCV** | Akses webcam dan eksperimen pengenalan wajah tanpa dependensi model `dlib` yang berat. |
+| Desktop | **PyWebView** | Membuka UI HTML sebagai aplikasi desktop dan menyediakan penghubung JavaScript ke Python. |
+| Antarmuka | **HTML5, CSS3, JavaScript vanilla** | UI lokal tanpa framework frontend atau proses bundling. |
+| Webcam dan pengenalan wajah | **OpenCV contrib + NumPy** | Deteksi wajah Haar dan pengenal LBPH sederhana untuk demonstrasi. |
+| USB | **Windows API melalui `ctypes`** | Mencari drive removable dan memeriksa token pada flashdisk tanpa dependensi tambahan. |
+| Data autentikasi | **JSON dan model OpenCV lokal** | Menyimpan hash token USB dan model wajah pada folder `storage/`. |
 
-PyWebView menghubungkan tampilan dan Python secara langsung. Karena itu, rancangan awal tidak memerlukan FastAPI/Flask, React/Vue, Tailwind/Bootstrap, atau Electron. Pilihan tersebut dapat ditinjau kembali jika proyek nantinya membutuhkan API terpisah atau antarmuka yang lebih kompleks.
+PyWebView dipilih daripada Electron atau API FastAPI/Flask agar tahap awal tetap ringan dan tidak membutuhkan server web terpisah. SQLite, AES-GCM, Argon2id, steganografi, dan audit ledger direncanakan untuk tahap berikutnya dan belum digunakan oleh prototipe ini.
 
-## Fitur yang Direncanakan
+## Kebutuhan
 
-- **Autentikasi berlapis:** pemeriksaan dongle USB, verifikasi wajah, dan password utama.
-- **Catatan rahasia:** enkripsi dan dekripsi teks saat disimpan dan dibuka.
-- **File locker:** menyimpan file sebagai ciphertext dan mengembalikannya setelah autentikasi.
-- **Database lokal:** menyimpan metadata vault di SQLite.
-- **Steganografi gambar:** eksperimen menyisipkan dan mengambil pesan dari gambar.
-- **Audit log berantai:** mencatat hash transaksi untuk membantu mendeteksi perubahan pada riwayat.
+- Windows 10/11 64-bit.
+- Python 3.11 atau lebih baru dan `pip`.
+- Microsoft Edge WebView2 Runtime.
+- Webcam.
+- USB Flashdisk yang diformat dengan filesystem yang dapat ditulis.
 
-## Kebutuhan Sistem
-
-- Windows 10/11 64-bit (target pengembangan awal).
-- Python 3.11 atau lebih baru, dengan `pip`.
-- Microsoft Edge WebView2 Runtime untuk jendela PyWebView.
-- Webcam dan dongle USB untuk menguji alur autentikasi terkait.
-- Ruang penyimpanan lokal untuk database dan file terenkripsi.
-
-Fitur inti dapat dikembangkan tanpa webcam atau dongle fisik; keduanya diperlukan untuk menguji alur autentikasi lengkap. Fitur wajah dapat membutuhkan dependensi tambahan sesuai implementasi dan platform.
+Deteksi USB saat ini khusus Windows dan hanya menampilkan drive yang dilaporkan sistem sebagai removable. Beberapa USB eksternal yang dilaporkan sebagai fixed drive mungkin tidak muncul.
 
 ## Instalasi dan Menjalankan
 
-Pastikan WebView2 Runtime sudah tersedia, lalu jalankan perintah berikut dari folder proyek di PowerShell:
+Jalankan perintah berikut di PowerShell dari folder proyek:
 
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install pywebview cryptography argon2-cffi Pillow
+python -m pip install -r requirements.txt
 python main.py
 ```
 
-Jika PowerShell menolak aktivasi environment virtual, jalankan perintah aktivasi yang sesuai dengan kebijakan lokal atau gunakan Python dari environment virtual secara langsung. Tambahkan OpenCV jika modul autentikasi wajah sedang dikembangkan:
+Jika Python 3.11 tidak terpasang, ganti `-3.11` dengan versi Python 3.11+ yang tersedia, misalnya `-3.14`.
+
+Jika PowerShell menolak aktivasi environment virtual, gunakan Python dari environment virtual secara langsung:
 
 ```powershell
-python -m pip install opencv-contrib-python
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe main.py
 ```
 
-Perintah `python main.py` baru dapat digunakan setelah launcher dan modul aplikasi tersedia. Saat ini repositori berisi dokumen perancangan; langkah di atas merupakan setup yang dituju untuk implementasi.
+## Cara Menguji Dua Kunci
 
-## Struktur Proyek yang Disarankan
+1. Jalankan aplikasi dan tekan **Aktifkan webcam**.
+2. Arahkan wajah ke kamera. Ambil 12 sampel; ubah sedikit sudut wajah atau ekspresi di antara pengambilan sampel.
+3. Tekan **Simpan pendaftaran wajah**.
+4. Sambungkan USB Flashdisk. Tekan tombol perbarui daftar, pilih drive USB yang benar, lalu tekan **Daftarkan USB ini**.
+5. Pendaftaran USB membuat file `USL-USB-KEY.txt` di root flashdisk. Jangan menghapus atau mengubah file tersebut.
+6. Tekan **Verifikasi dan buka**. Aplikasi memeriksa token USB dan kemudian membandingkan wajah dari webcam. Hanya jika keduanya cocok dashboard demonstrasi terbuka.
+7. Tekan **Kunci aplikasi** pada dashboard untuk kembali ke layar akses.
+
+Untuk menguji penolakan akses, lepaskan flashdisk terdaftar atau coba verifikasi menggunakan wajah yang berbeda. Pendaftaran biometrik tersimpan lokal di `storage/face_model.yml`; hash token tersimpan di `storage/auth_config.json`. Kedua file tersebut tidak ditambahkan ke Git.
+
+## Struktur Proyek
 
 ```text
 universal-secure-locker/
 ├── backend/
-│   ├── database.py
 │   ├── security/
-│   │   ├── crypto_engine.py
-│   │   ├── dongle_auth.py
-│   │   └── biometric_auth.py
+│   │   ├── biometric_auth.py
+│   │   └── dongle_auth.py
 │   └── modules/
-│       ├── locker_manager.py
-│       ├── steganography.py
-│       └── blockchain_ledger.py
 ├── frontend/
 │   ├── index.html
 │   ├── dashboard.html
@@ -81,27 +82,21 @@ universal-secure-locker/
 │   │   └── style.css
 │   └── js/
 │       ├── app.js
-│       ├── webcam.js
 │       └── api.js
-├── storage/
-│   └── encrypted_files/
+├── storage/                  # Data autentikasi lokal, diabaikan Git
 ├── main.py
+├── requirements.txt
 └── README.md
 ```
 
-`storage/` berisi data runtime lokal dan sebaiknya tidak dimasukkan ke version control. Modul `api.js` pada struktur ini hanya menangani komunikasi frontend ke API Python yang diekspos PyWebView, bukan server HTTP.
+Rincian latar belakang dan rancangan keseluruhan terdapat di [dokumen perancangan proyek](./dokumen_perancangan_project_akhir_kriptografi.md).
 
 ## Catatan Keamanan dan Batasan
 
-- Gunakan **AES-GCM** untuk data teks maupun file; jangan membuat algoritma enkripsi sendiri. AES-GCM juga memeriksa integritas ciphertext saat dekripsi.
-- Password tidak dienkripsi atau disimpan sebagai SHA-256 biasa. Simpan hash Argon2id dengan salt unik. Jika enkripsi memakai kunci turunan password, gunakan skema derivasi kunci yang sesuai dan parameter yang dapat diperbarui.
-- Dongle sebaiknya membawa token rahasia acak yang diverifikasi secara aman. Serial number atau nama drive saja mudah ditiru dan bukan bukti kepemilikan yang kuat.
-- Verifikasi wajah dari webcam dapat salah mengenali atau menolak pengguna, dan foto/video dapat menipu sistem sederhana. Perlakukan sebagai lapisan tambahan, bukan pengganti password atau kunci kriptografi.
-- Steganografi hanya menyamarkan keberadaan pesan; **tidak mengenkripsi** pesan. Enkripsi pesan terlebih dahulu sebelum menyisipkannya.
-- Blockchain lokal berbasis hash membantu mendeteksi perubahan pada rantai yang masih utuh, tetapi tidak menjamin immutability jika penyerang dapat mengubah atau mengganti seluruh file ledger.
-- Enkripsi database harus mencakup data sensitif dan metadata yang relevan. SQLite standar tidak mengenkripsi file database secara otomatis.
-- Jangan menyimpan password, kunci, token dongle, data wajah, file pengguna, atau isi vault di repository. Sediakan prosedur backup dan pemulihan kunci sebelum digunakan untuk data nyata.
-
-## Dokumen Perancangan
-
-Rincian latar belakang, kriteria tugas akhir, serta alur penggunaan terdapat di [dokumen perancangan proyek](./dokumen_perancangan_project_akhir_kriptografi.md).
+- Ini adalah **demonstrasi autentikasi**, bukan sistem keamanan siap produksi. Jangan gunakan untuk melindungi data penting.
+- File token USB adalah rahasia statis. Orang yang dapat menyalinnya dapat menduplikasi kunci; serial perangkat dan pendeteksian drive juga bukan bukti USB yang tahan manipulasi.
+- LBPH merupakan pengenal wajah sederhana, bukan sistem biometrik modern yang tahan spoofing. Prototipe ini tidak memiliki deteksi keaktifan (*liveness detection*), sehingga foto/video dapat berisiko mengecoh verifikasi. Nilai ambang pengenalan perlu diuji pada kondisi kamera yang beragam.
+- Model wajah dan konfigurasi disimpan lokal tanpa enkripsi pada tahap ini. Amankan komputer dan jangan membagikan folder `storage/`.
+- Kamera hanya digunakan melalui aplikasi lokal; frame tidak dikirim ke layanan internet.
+- Dashboard setelah autentikasi belum menyimpan catatan atau file, dan belum ada enkripsi database maupun file.
+- Jangan mengimplementasikan algoritma kriptografi sendiri pada tahap lanjutan. Gunakan pustaka teruji, misalnya `cryptography` dengan AES-GCM untuk enkripsi terautentikasi dan Argon2id untuk hash password.

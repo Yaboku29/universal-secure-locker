@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1220">
+  <title>Universal Secure Locker</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="access">
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="index.html" aria-label="Universal Secure Locker">
+        <span class="brand-mark">USL</span>
+        <span>Universal <strong>Secure Locker</strong></span>
+      </a>
+      <span class="environment-tag"><span class="status-dot"></span> PROTOTIPE LOKAL</span>
+    </header>
+
+    <section class="intro">
+      <div class="eyebrow">AKSES DENGAN DUA KUNCI</div>
+      <h1>Brankas digital,<br><span>dimulai dari Anda.</span></h1>
+      <p>Daftarkan wajah dan USB Anda. Keduanya harus cocok untuk membuka aplikasi.</p>
+    </section>
+
+    <section class="access-layout" aria-label="Pengaturan dan verifikasi akses">
+      <article class="card setup-card">
+        <div class="card-heading">
+          <div>
+            <div class="eyebrow">LANGKAH 01 — PENDAFTARAN</div>
+            <h2>Siapkan dua kunci</h2>
+          </div>
+          <span class="step-badge">2 faktor</span>
+        </div>
+
+        <div class="key-block">
+          <div class="key-icon" aria-hidden="true">01</div>
+          <div class="key-content">
+            <div class="key-title-row">
+              <h3>Wajah</h3>
+              <span class="pill" id="face-status">Belum terdaftar</span>
+            </div>
+            <p>Aktifkan webcam, lalu ambil 12 sampel dengan posisi wajah sedikit berbeda.</p>
+            <div class="camera-frame">
+              <img id="camera-preview" alt="Pratinjau webcam" hidden>
+              <div id="camera-placeholder" class="camera-placeholder">
+                <span class="camera-symbol" aria-hidden="true">◉</span>
+                <span>Pratinjau webcam akan muncul di sini</span>
+              </div>
+              <span class="camera-label"><span class="status-dot"></span> KAMERA</span>
+            </div>
+            <div class="button-row">
+              <button class="button button-secondary" id="camera-button" type="button">Aktifkan webcam</button>
+              <button class="button button-secondary" id="capture-button" type="button" disabled>Ambil sampel <span id="sample-count">0/12</span></button>
+            </div>
+            <div class="progress-track" aria-label="Kemajuan pendaftaran wajah">
+              <span id="sample-progress"></span>
+            </div>
+            <button class="button button-text" id="finish-face-button" type="button" disabled>Simpan pendaftaran wajah</button>
+            <p class="inline-message" id="face-message" role="status">Pastikan wajah terlihat jelas dan pencahayaan cukup.</p>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="key-block">
+          <div class="key-icon" aria-hidden="true">02</div>
+          <div class="key-content">
+            <div class="key-title-row">
+              <h3>USB Flashdisk</h3>
+              <span class="pill" id="usb-status">Belum terdaftar</span>
+            </div>
+            <p>Sambungkan flashdisk, perbarui daftar, lalu daftarkan sebagai kunci.</p>
+            <div class="button-row usb-controls">
+              <select id="usb-select" aria-label="Pilih USB Flashdisk">
+                <option value="">Perbarui daftar USB terlebih dahulu</option>
+              </select>
+              <button class="button button-secondary" id="refresh-usb-button" type="button" aria-label="Perbarui daftar USB">↻</button>
+            </div>
+            <button class="button button-text" id="register-usb-button" type="button" disabled>Daftarkan USB ini</button>
+            <p class="inline-message" id="usb-message" role="status">Token kunci akan dibuat di flashdisk yang dipilih.</p>
+          </div>
+        </div>
+      </article>
+
+      <aside class="card verify-card">
+        <div class="card-heading">
+          <div>
+            <div class="eyebrow">LANGKAH 02 — VERIFIKASI</div>
+            <h2>Buka aplikasi</h2>
+          </div>
+          <span class="lock-icon" aria-hidden="true">⌑</span>
+        </div>
+        <p class="verify-description">Saat kedua kunci siap, verifikasi flashdisk dan wajah untuk melanjutkan.</p>
+
+        <div class="factor-row">
+          <span class="factor-icon" aria-hidden="true">⌁</span>
+          <span><strong>USB Flashdisk</strong><small>Token unik pada drive terdaftar</small></span>
+          <span class="factor-check" id="usb-check">—</span>
+        </div>
+        <div class="factor-row">
+          <span class="factor-icon face-icon" aria-hidden="true">◎</span>
+          <span><strong>Biometrik wajah</strong><small>Pengenalan melalui webcam</small></span>
+          <span class="factor-check" id="face-check">—</span>
+        </div>
+
+        <button class="button button-primary button-wide" id="unlock-button" type="button" disabled>
+          Verifikasi dan buka <span aria-hidden="true">→</span>
+        </button>
+        <p class="inline-message" id="login-message" role="status">Daftarkan kedua kunci terlebih dahulu.</p>
+        <div class="privacy-note">
+          <span aria-hidden="true">◈</span>
+          <p>Semua proses berjalan lokal di komputer ini. Gambar webcam tidak dikirim ke internet.</p>
+        </div>
+      </aside>
+    </section>
+
+    <footer class="footer">
+      <span>Universal Secure Locker <span class="footer-separator">/</span> Prototipe autentikasi</span>
+      <a href="../dokumen_perancangan_project_akhir_kriptografi.md">Tentang proyek</a>
+    </footer>
+  </main>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
