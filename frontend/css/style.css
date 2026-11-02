@@ -240,7 +240,7 @@ a {
 
 .camera-frame {
   position: relative;
-  height: 130px;
+  height: 260px;
   overflow: hidden;
   border: 1px solid #25344a;
   border-radius: 11px;
@@ -269,12 +269,12 @@ a {
   justify-content: center;
   gap: 9px;
   color: #78889e;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .camera-symbol {
   color: #5dd8bc;
-  font-size: 26px;
+  font-size: 36px;
 }
 
 .camera-label {
@@ -694,6 +694,10 @@ a {
   .setup-card,
   .verify-card {
     padding: 17px;
+  }
+
+  .camera-frame {
+    height: 220px;
   }
 
   .key-block {
