@@ -6,7 +6,7 @@ Universal Secure Locker adalah prototipe aplikasi desktop brankas digital lokal 
 
 Versi ini berfokus pada tampilan dasar dan uji alur autentikasi dua kunci:
 
-1. **USB Flashdisk** — aplikasi mendaftarkan file token rahasia `USL-USB-KEY.txt` di flashdisk dan menyimpan hash token di komputer.
+1. **USB Flashdisk** — aplikasi menambahkan satu file token rahasia `USL-USB-KEY.txt` di flashdisk dan menyimpan hash token di komputer.
 2. **Biometrik wajah** — pengguna mendaftarkan 12 sampel wajah dari webcam. OpenCV mendeteksi wajah dan membuat model pengenal LBPH lokal.
 
 Kedua kunci wajib terdaftar dan lolos verifikasi sebelum dashboard demonstrasi terbuka. Dashboard saat ini hanya menunjukkan bahwa alur akses berhasil; fitur catatan, file locker, dan enkripsi belum dibuat.
@@ -57,12 +57,13 @@ Jika PowerShell menolak aktivasi environment virtual, gunakan Python dari enviro
 ## Cara Menguji Dua Kunci
 
 1. Jalankan aplikasi dan tekan **Aktifkan webcam**.
-2. Arahkan wajah ke kamera. Ambil 12 sampel; ubah sedikit sudut wajah atau ekspresi di antara pengambilan sampel.
-3. Tekan **Simpan pendaftaran wajah**.
-4. Sambungkan USB Flashdisk. Tekan tombol perbarui daftar, pilih drive USB yang benar, lalu tekan **Daftarkan USB ini**.
-5. Pendaftaran USB membuat file `USL-USB-KEY.txt` di root flashdisk. Jangan menghapus atau mengubah file tersebut.
-6. Tekan **Verifikasi dan buka**. Aplikasi memeriksa token USB dan kemudian membandingkan wajah dari webcam. Hanya jika keduanya cocok dashboard demonstrasi terbuka.
-7. Tekan **Kunci aplikasi** pada dashboard untuk kembali ke layar akses.
+2. Arahkan wajah ke kamera. Tekan **Ambil sampel** 12 kali; ubah sedikit sudut wajah atau ekspresi di antara pengambilan.
+3. Setelah 12 sampel, tombol **Daftarkan wajah sekarang** aktif. Tekan tombol tersebut untuk menyimpan model wajah.
+4. Sambungkan USB Flashdisk. Tekan tombol perbarui daftar, lalu pilih drive USB yang benar.
+5. Setelah memilih drive, tombol **Daftarkan USB sebagai kunci** tersedia. Tekan tombol tersebut dan setujui konfirmasi.
+6. Pendaftaran USB **tidak memformat flashdisk dan tidak menghapus atau menimpa file yang sudah ada**. Aplikasi hanya membuat satu file token kecil bernama `USL-USB-KEY.txt` di folder utama USB; file token ini jangan dihapus atau diubah.
+7. Setelah status wajah dan USB menunjukkan **Terdaftar**, tekan **Verifikasi dan buka**. Dashboard demonstrasi hanya terbuka jika kedua kunci cocok.
+8. Tekan **Kunci aplikasi** pada dashboard untuk kembali ke layar akses.
 
 Untuk menguji penolakan akses, lepaskan flashdisk terdaftar atau coba verifikasi menggunakan wajah yang berbeda. Pendaftaran biometrik tersimpan lokal di `storage/face_model.yml`; hash token tersimpan di `storage/auth_config.json`. Kedua file tersebut tidak ditambahkan ke Git.
 
@@ -95,6 +96,7 @@ Rincian latar belakang dan rancangan keseluruhan terdapat di [dokumen perancanga
 
 - Ini adalah **demonstrasi autentikasi**, bukan sistem keamanan siap produksi. Jangan gunakan untuk melindungi data penting.
 - File token USB adalah rahasia statis. Orang yang dapat menyalinnya dapat menduplikasi kunci; serial perangkat dan pendeteksian drive juga bukan bukti USB yang tahan manipulasi.
+- Pendaftaran USB tidak menjalankan proses format. Aplikasi hanya membuat file token baru di folder utama USB yang dipilih. File yang sudah ada tidak ditimpa; jika file token dengan nama yang sama sudah ada, pendaftaran dibatalkan.
 - LBPH merupakan pengenal wajah sederhana, bukan sistem biometrik modern yang tahan spoofing. Prototipe ini tidak memiliki deteksi keaktifan (*liveness detection*), sehingga foto/video dapat berisiko mengecoh verifikasi. Nilai ambang pengenalan perlu diuji pada kondisi kamera yang beragam.
 - Model wajah dan konfigurasi disimpan lokal tanpa enkripsi pada tahap ini. Amankan komputer dan jangan membagikan folder `storage/`.
 - Kamera hanya digunakan melalui aplikasi lokal; frame tidak dikirim ke layanan internet.

@@ -29,8 +29,16 @@ async function initializeAccessPage() {
     setPill($("#usb-status"), status.usb_registered);
     finishFaceButton.disabled =
       status.face_registered || enrolledSampleCount < 12;
+    finishFaceButton.textContent = status.face_registered
+      ? "Wajah berhasil didaftarkan"
+      : enrolledSampleCount < 12
+        ? `Daftarkan wajah — ambil ${12 - enrolledSampleCount} sampel lagi`
+        : "Daftarkan wajah sekarang";
     captureButton.disabled = status.face_registered || !cameraRunning;
     registerUsbButton.disabled = status.usb_registered || !usbSelect.value;
+    registerUsbButton.textContent = status.usb_registered
+      ? "USB berhasil didaftarkan"
+      : "Daftarkan USB sebagai kunci";
     unlockButton.disabled = !(status.face_registered && status.usb_registered);
     return status;
   }
@@ -51,10 +59,12 @@ async function initializeAccessPage() {
       registerUsbButton.disabled = !usbSelect.value;
       showMessage(
         usbMessage,
-        drives.length
-          ? `${drives.length} drive USB removable ditemukan.`
+        drives.length && usbSelect.value
+          ? `${usbSelect.selectedOptions[0].textContent} dipilih. Tekan "Daftarkan USB sebagai kunci" untuk melanjutkan.`
+          : drives.length
+            ? `${drives.length} drive USB ditemukan. Pilih flashdisk yang ingin didaftarkan.`
           : "Sambungkan flashdisk, lalu perbarui daftar.",
-        drives.length ? "success" : "",
+        drives.length && usbSelect.value ? "success" : "",
       );
     } catch (error) {
       showMessage(usbMessage, error.message, "error");
@@ -132,10 +142,26 @@ async function initializeAccessPage() {
   refreshUsbButton.addEventListener("click", refreshUsbDrives);
   usbSelect.addEventListener("change", () => {
     registerUsbButton.disabled = !usbSelect.value;
+    if (usbSelect.value) {
+      showMessage(
+        usbMessage,
+        `${usbSelect.selectedOptions[0].textContent} dipilih. Tekan tombol "Daftarkan USB sebagai kunci" di bawah.`,
+        "success",
+      );
+    }
   });
 
   registerUsbButton.addEventListener("click", async () => {
     if (!usbSelect.value) return;
+    const drive = usbSelect.selectedOptions[0].textContent;
+    const accepted = window.confirm(
+      `Daftarkan ${drive} sebagai kunci USB?\n\n` +
+        "USB TIDAK akan diformat dan file yang sudah ada tidak dihapus. " +
+        "Aplikasi hanya membuat satu file token kecil bernama " +
+        "USL-USB-KEY.txt di folder utama USB tersebut.",
+    );
+    if (!accepted) return;
+
     registerUsbButton.disabled = true;
     try {
       const message = await callApi("register_usb_key", usbSelect.value);

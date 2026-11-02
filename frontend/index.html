@@ -27,8 +27,8 @@
       <article class="card setup-card">
         <div class="card-heading">
           <div>
-            <div class="eyebrow">LANGKAH 01 — PENDAFTARAN</div>
-            <h2>Siapkan dua kunci</h2>
+            <div class="eyebrow">LANGKAH 01 — PENDAFTARAN PERTAMA</div>
+            <h2>Daftarkan dua kunci</h2>
           </div>
           <span class="step-badge">2 faktor</span>
         </div>
@@ -56,8 +56,8 @@
             <div class="progress-track" aria-label="Kemajuan pendaftaran wajah">
               <span id="sample-progress"></span>
             </div>
-            <button class="button button-text" id="finish-face-button" type="button" disabled>Simpan pendaftaran wajah</button>
-            <p class="inline-message" id="face-message" role="status">Pastikan wajah terlihat jelas dan pencahayaan cukup.</p>
+            <button class="button button-primary registration-button" id="finish-face-button" type="button" disabled>Daftarkan wajah — ambil 12 sampel dahulu</button>
+            <p class="inline-message" id="face-message" role="status">Aktifkan webcam, ambil 12 sampel, lalu tekan tombol pendaftaran wajah di atas.</p>
           </div>
         </div>
 
@@ -70,15 +70,15 @@
               <h3>USB Flashdisk</h3>
               <span class="pill" id="usb-status">Belum terdaftar</span>
             </div>
-            <p>Sambungkan flashdisk, perbarui daftar, lalu daftarkan sebagai kunci.</p>
+            <p>Sambungkan flashdisk, perbarui daftar, pilih drive, lalu daftarkan sebagai kunci.</p>
             <div class="button-row usb-controls">
               <select id="usb-select" aria-label="Pilih USB Flashdisk">
                 <option value="">Perbarui daftar USB terlebih dahulu</option>
               </select>
               <button class="button button-secondary" id="refresh-usb-button" type="button" aria-label="Perbarui daftar USB">↻</button>
             </div>
-            <button class="button button-text" id="register-usb-button" type="button" disabled>Daftarkan USB ini</button>
-            <p class="inline-message" id="usb-message" role="status">Token kunci akan dibuat di flashdisk yang dipilih.</p>
+            <button class="button button-primary registration-button" id="register-usb-button" type="button" disabled>Daftarkan USB sebagai kunci</button>
+            <p class="inline-message" id="usb-message" role="status">Tidak diformat. Pendaftaran hanya menambahkan satu file token kecil di flashdisk.</p>
           </div>
         </div>
       </article>
