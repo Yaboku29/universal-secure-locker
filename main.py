@@ -1,9 +1,13 @@
+import logging
 from pathlib import Path
 
 import webview
 
 from backend.security.biometric_auth import BiometricAuth
 from backend.security.dongle_auth import DongleAuth
+
+
+logger = logging.getLogger("universal_secure_locker")
 
 
 class LockerApi:
@@ -73,9 +77,21 @@ class LockerApi:
 
     def shutdown(self) -> None:
         self.logout()
+        logger.info("Aplikasi ditutup.")
+
+    def log_frontend_message(self, message: str) -> None:
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError("Pesan log harus berupa teks yang tidak kosong.")
+        logger.info("Closure: %s", " ".join(message.split())[:300])
 
 
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    logger.info("Universal Secure Locker dimulai.")
     project_dir = Path(__file__).resolve().parent
     storage_dir = project_dir / "storage"
     api = LockerApi(storage_dir)

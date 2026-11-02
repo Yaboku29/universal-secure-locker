@@ -11,6 +11,20 @@ Versi ini berfokus pada tampilan dasar dan uji alur autentikasi dua kunci:
 
 Kedua kunci wajib terdaftar dan lolos verifikasi sebelum dashboard demonstrasi terbuka. Dashboard saat ini hanya menunjukkan bahwa alur akses berhasil; fitur catatan, file locker, dan enkripsi belum dibuat.
 
+Closure tampil sebagai pemandu dengan bubble dialog yang menyambut pengguna dan memperbarui petunjuk sesuai tahap pendaftaran, verifikasi, atau akses dashboard.
+
+## Panduan Closure dan Pesan Terminal
+
+Closure menyambut pengguna dan memberikan instruksi dalam bubble dialog. Pesan tersebut mengikuti tahap yang sedang berlangsung: aktivasi webcam, pengambilan sampel wajah, pemilihan dan pendaftaran USB, hingga verifikasi akses. Informasi pada elemen status di halaman juga tetap ditampilkan.
+
+Pesan panduan Closure **juga tetap dicatat di terminal** sebagai log berlevel `INFO`; fitur bubble tidak menggantikan pesan terminal. Jalankan aplikasi dari PowerShell agar log dapat dilihat:
+
+```powershell
+.\.venv\Scripts\python.exe main.py
+```
+
+Log menggunakan format waktu, level, dan nama logger, misalnya `INFO universal_secure_locker: Closure: Webcam aktif...`. Jika halaman dibuka langsung tanpa bridge PyWebView, Closure tetap memberikan panduan di layar dan pesan tersedia di konsol browser.
+
 ## Stack yang Dipilih
 
 | Bagian | Teknologi | Penggunaan |
@@ -102,3 +116,9 @@ Rincian latar belakang dan rancangan keseluruhan terdapat di [dokumen perancanga
 - Kamera hanya digunakan melalui aplikasi lokal; frame tidak dikirim ke layanan internet.
 - Dashboard setelah autentikasi belum menyimpan catatan atau file, dan belum ada enkripsi database maupun file.
 - Jangan mengimplementasikan algoritma kriptografi sendiri pada tahap lanjutan. Gunakan pustaka teruji, misalnya `cryptography` dengan AES-GCM untuk enkripsi terautentikasi dan Argon2id untuk hash password.
+
+## Perubahan Tampilan Terbaru
+
+- **Halaman awal:** gambar Closure ditampilkan sebagai pemandu di samping bubble dialog, bukan sebagai logo. Instruksi dialog berubah mengikuti proses pendaftaran dan verifikasi.
+- **Dashboard:** Closure menyambut pengguna melalui bubble dialog dan menjelaskan bahwa modul vault masih dalam tahap pengembangan.
+- **Pesan terminal dan bubble:** status serta pesan panduan/error tetap dikirim ke terminal sebagai log `INFO` dan juga ditampilkan pada bubble Closure; perubahan UI tidak menghilangkan log terminal.

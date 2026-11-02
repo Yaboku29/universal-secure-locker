@@ -1,17 +1,15 @@
 :root {
   color-scheme: dark;
   font-family: "Segoe UI", sans-serif;
-  background: #0b1220;
-  color: #e8edf7;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  --surface: #121b2c;
-  --surface-raised: #172338;
-  --line: #26344a;
-  --muted: #8d9bb1;
-  --accent: #55dfbd;
-  --accent-dark: #133f3d;
-  --danger: #ff828c;
+  background: #0b0c10;       /* Latar belakang gelap industrial */
+  color: #f8fbfd;
+  --surface: #121820;        /* Warna permukaan kartu */
+  --surface-raised: #18202a;
+  --line: #2a3648;           /* Warna garis pembatas */
+  --muted: #8d9bb1;          /* Warna teks sekunder */
+  --accent: #f8db60;         /* Warna aksen kuning industrial khas Closure */
+  --accent-dark: #3f3613;
+  --danger: #da3e39;         /* Warna aksen merah terang mantel Closure */
 }
 
 * {
@@ -112,6 +110,83 @@ a {
 
 .intro {
   padding: 32px 0 22px;
+}
+
+.closure-hero-banner {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  min-height: 225px;
+  margin-bottom: 8px;
+}
+
+.closure-guide-character {
+  width: 190px;
+  height: 230px;
+  flex: 0 0 190px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.closure-guide-character img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  object-position: bottom;
+  filter: drop-shadow(0 0 14px rgb(248 219 96 / 12%));
+}
+
+.closure-dialogue {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+  align-self: center;
+  padding: 22px 24px;
+  border: 1px solid rgb(248 219 96 / 36%);
+  border-radius: 16px;
+  background: linear-gradient(140deg, #1d2020, #141922);
+  box-shadow: 0 12px 35px rgb(0 0 0 / 18%);
+}
+
+.closure-dialogue::before {
+  position: absolute;
+  top: 50%;
+  left: -9px;
+  width: 16px;
+  height: 16px;
+  border-bottom: 1px solid rgb(248 219 96 / 36%);
+  border-left: 1px solid rgb(248 219 96 / 36%);
+  background: #1b1e20;
+  content: "";
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.closure-dialogue-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+}
+
+.closure-dialogue-label span:last-child {
+  color: var(--muted);
+}
+
+.closure-dialogue-label .status-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.closure-dialogue p {
+  margin: 12px 0 0;
+  color: #e8edf7;
+  font-size: 14px;
+  line-height: 1.75;
 }
 
 .intro h1,
@@ -572,15 +647,18 @@ a {
 }
 
 .dashboard-welcome {
-  padding: 70px 0 37px;
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  padding: 45px 0 35px;
 }
 
-.dashboard-welcome h1 {
-  font-size: clamp(38px, 5vw, 58px);
+.dashboard-guide-character {
+  height: 260px;
 }
 
-.dashboard-welcome p {
-  max-width: 520px;
+.dashboard-dialogue {
+  margin-bottom: 30px;
 }
 
 .dashboard-grid {
@@ -691,6 +769,34 @@ a {
     padding-top: 36px;
   }
 
+  .closure-hero-banner {
+    gap: 8px;
+    min-height: 145px;
+  }
+
+  .closure-guide-character {
+    width: 105px;
+    height: 155px;
+    flex-basis: 105px;
+  }
+
+  .dashboard-guide-character {
+    height: 165px;
+  }
+
+  .closure-dialogue {
+    padding: 15px;
+  }
+
+  .closure-dialogue p {
+    margin-top: 9px;
+    font-size: 12px;
+  }
+
+  .closure-dialogue-label {
+    font-size: 8px;
+  }
+
   .setup-card,
   .verify-card {
     padding: 17px;
@@ -712,6 +818,15 @@ a {
 
   .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-welcome {
+    gap: 8px;
+    padding: 35px 0 25px;
+  }
+
+  .dashboard-dialogue {
+    margin-bottom: 20px;
   }
 
   .feature-card {
