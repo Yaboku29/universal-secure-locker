@@ -578,12 +578,45 @@ a {
 
 .account-auth-layout {
   display: block;
-  max-width: 470px;
+  max-width: 640px;
   margin: 0 auto;
+  padding-top: 16px;
 }
 
 .account-auth-layout .verify-card {
   position: static;
+}
+
+.account-closure-guide {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto minmax(220px, 1fr);
+  gap: 12px;
+}
+
+.account-closure-dialogue {
+  width: 100%;
+  padding: 20px 22px;
+}
+
+.account-closure-dialogue p {
+  font-size: 15px;
+}
+
+.account-closure-character {
+  height: 330px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.account-closure-character img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 0 18px rgb(248 219 96 / 15%));
 }
 
 .account-auth-heading h3,
@@ -1024,6 +1057,296 @@ a {
   min-height: 36px;
 }
 
+@media (min-width: 1101px) {
+  .closure-hero-banner {
+    position: fixed;
+    z-index: 5;
+    top: 50%;
+    right: max(36px, calc((100vw - 1120px) / 2));
+    width: min(560px, 46vw);
+    height: min(600px, calc(100vh - 48px));
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    align-items: center;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    transform: translateY(-50%);
+  }
+
+  .closure-guide-character {
+    width: auto;
+    height: 100%;
+    flex: initial;
+  }
+
+  .closure-dialogue {
+    width: 100%;
+    flex: initial;
+    align-self: center;
+  }
+
+  .closure-dialogue::before {
+    top: 50%;
+    right: auto;
+    bottom: auto;
+    left: -8px;
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .access-layout:not(.account-auth-layout) {
+    display: block;
+    margin-right: calc(min(560px, 46vw) + 24px);
+  }
+
+  .dashboard-welcome {
+    position: fixed;
+    z-index: 5;
+    top: 50%;
+    right: max(36px, calc((100vw - 1120px) / 2));
+    width: min(440px, 38vw);
+    height: min(560px, calc(100vh - 48px));
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    align-items: center;
+    gap: 0;
+    padding: 0;
+    transform: translateY(-50%);
+  }
+
+  .dashboard-guide-character {
+    width: auto;
+    height: 100%;
+  }
+
+  .dashboard-guide-character img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .dashboard-dialogue {
+    margin: 0;
+  }
+
+  .dashboard-dialogue::before {
+    top: 50%;
+    bottom: auto;
+    left: -8px;
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .dashboard-shell > .vault-panel,
+  .dashboard-shell > .demo-notice,
+  .dashboard-shell > .footer {
+    margin-right: calc(min(440px, 38vw) + 24px);
+  }
+
+  .account-auth-layout {
+    max-width: none;
+    margin: 0;
+  }
+
+  .account-auth-layout .verify-card {
+    width: min(450px, calc(100% - min(560px, 46vw) - 48px));
+    margin-right: calc(min(560px, 46vw) + 24px);
+    margin-left: auto;
+  }
+
+  .account-closure-guide {
+    position: fixed;
+    z-index: 5;
+    top: 50%;
+    right: max(36px, calc((100vw - 1120px) / 2));
+    width: min(560px, 46vw);
+    height: min(600px, calc(100vh - 48px));
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    align-items: center;
+    gap: 0;
+    transform: translateY(-50%);
+  }
+
+  .account-closure-character,
+  .account-closure-dialogue {
+    grid-row: 1;
+  }
+
+  .account-closure-dialogue {
+    grid-column: 1;
+    padding: 20px 18px;
+  }
+
+  .account-closure-character {
+    grid-column: 2;
+    height: 100%;
+  }
+
+  .account-closure-character img {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  .account-closure-dialogue::before {
+    top: 50%;
+    right: -8px;
+    bottom: auto;
+    left: auto;
+    border: 0;
+    border-top: 1px solid rgb(248 219 96 / 36%);
+    border-right: 1px solid rgb(248 219 96 / 36%);
+    transform: translateY(-50%) rotate(45deg);
+  }
+}
+
+@media (min-width: 561px) and (max-width: 1100px) {
+  .closure-hero-banner {
+    position: fixed;
+    z-index: 5;
+    top: 50%;
+    right: 16px;
+    width: min(360px, 42vw);
+    height: min(480px, calc(100vh - 32px));
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: center;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    transform: translateY(-50%);
+  }
+
+  .closure-guide-character {
+    width: auto;
+    height: 100%;
+    flex: initial;
+  }
+
+  .closure-dialogue {
+    width: 100%;
+    flex: initial;
+    align-self: center;
+    padding: 18px 14px;
+  }
+
+  .closure-dialogue::before {
+    top: 50%;
+    right: auto;
+    bottom: auto;
+    left: -8px;
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .access-layout:not(.account-auth-layout) {
+    display: block;
+    margin-right: calc(min(360px, 42vw) + 24px);
+  }
+
+  .dashboard-welcome {
+    position: fixed;
+    z-index: 5;
+    top: 50%;
+    right: 16px;
+    width: min(360px, 42vw);
+    height: min(480px, calc(100vh - 32px));
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: center;
+    gap: 0;
+    padding: 0;
+    transform: translateY(-50%);
+  }
+
+  .dashboard-guide-character {
+    width: auto;
+    height: 100%;
+  }
+
+  .dashboard-guide-character img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .dashboard-dialogue {
+    margin: 0;
+  }
+
+  .dashboard-dialogue::before {
+    top: 50%;
+    bottom: auto;
+    left: -8px;
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .dashboard-shell > .vault-panel,
+  .dashboard-shell > .demo-notice,
+  .dashboard-shell > .footer {
+    margin-right: calc(min(360px, 42vw) + 24px);
+  }
+
+  .account-auth-layout {
+    max-width: none;
+    margin: 0;
+  }
+
+  .account-auth-layout .verify-card {
+    width: calc(100% - min(360px, 42vw) - 24px);
+    margin-right: calc(min(360px, 42vw) + 24px);
+    margin-left: auto;
+  }
+
+  .account-closure-guide {
+    position: fixed;
+    z-index: 5;
+    top: 50%;
+    right: 16px;
+    width: min(360px, 42vw);
+    height: min(480px, calc(100vh - 32px));
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    align-items: center;
+    gap: 0;
+    transform: translateY(-50%);
+  }
+
+  .account-closure-dialogue,
+  .account-closure-character {
+    grid-row: 1;
+  }
+
+  .account-closure-dialogue {
+    grid-column: 1;
+    padding: 18px 14px;
+  }
+
+  .account-closure-character {
+    grid-column: 2;
+    height: 100%;
+  }
+
+  .account-closure-character img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .account-closure-dialogue::before {
+    top: 50%;
+    right: -8px;
+    bottom: auto;
+    left: auto;
+    border: 0;
+    border-top: 1px solid rgb(248 219 96 / 36%);
+    border-right: 1px solid rgb(248 219 96 / 36%);
+    transform: translateY(-50%) rotate(45deg);
+  }
+}
+
 @media (max-width: 850px) {
   body {
     min-width: 0;
@@ -1043,6 +1366,195 @@ a {
 }
 
 @media (max-width: 560px) {
+  .dashboard-welcome {
+    position: fixed;
+    z-index: 5;
+    right: 12px;
+    bottom: 12px;
+    width: min(280px, calc(100vw - 24px));
+    height: min(220px, 32vh);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(72px, 0.62fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    gap: 0;
+    padding: 0;
+    pointer-events: none;
+  }
+
+  .dashboard-guide-character,
+  .dashboard-dialogue {
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .dashboard-guide-character {
+    grid-column: 2;
+    height: 100%;
+  }
+
+  .dashboard-guide-character img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .dashboard-dialogue {
+    grid-column: 1;
+    max-height: 100%;
+    overflow-y: auto;
+    margin: 0;
+    padding: 13px 10px;
+    background: rgb(20 25 34 / 96%);
+  }
+
+  .dashboard-dialogue p {
+    max-height: 7em;
+    overflow-y: auto;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .dashboard-dialogue::before {
+    top: 50%;
+    right: -8px;
+    bottom: auto;
+    left: auto;
+    border: 0;
+    border-top: 1px solid rgb(248 219 96 / 36%);
+    border-right: 1px solid rgb(248 219 96 / 36%);
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .dashboard-dialogue .closure-dialogue-label {
+    font-size: 7px;
+  }
+
+  .account-closure-guide {
+    position: fixed;
+    z-index: 5;
+    right: 12px;
+    bottom: 12px;
+    width: min(280px, calc(100vw - 24px));
+    height: min(220px, 32vh);
+    grid-template-columns: minmax(0, 1fr) minmax(72px, 0.62fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    gap: 0;
+    pointer-events: none;
+  }
+
+  .account-closure-dialogue,
+  .account-closure-character {
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .account-closure-dialogue {
+    grid-column: 1;
+    max-height: 100%;
+    overflow-y: auto;
+    padding: 13px 10px;
+    background: rgb(20 25 34 / 96%);
+  }
+
+  .account-closure-dialogue p {
+    max-height: 7em;
+    overflow-y: auto;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .account-closure-dialogue::before {
+    top: 50%;
+    right: -8px;
+    bottom: auto;
+    left: auto;
+    border: 0;
+    border-top: 1px solid rgb(248 219 96 / 36%);
+    border-right: 1px solid rgb(248 219 96 / 36%);
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .account-closure-dialogue .closure-dialogue-label {
+    font-size: 7px;
+  }
+
+  .account-closure-character {
+    grid-column: 2;
+    height: 100%;
+  }
+
+  .account-closure-character img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .closure-hero-banner {
+    position: fixed;
+    z-index: 5;
+    right: 12px;
+    bottom: 12px;
+    width: min(280px, calc(100vw - 24px));
+    height: min(220px, 32vh);
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) minmax(72px, 0.62fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+  }
+
+  .closure-guide-character,
+  .closure-dialogue {
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .closure-guide-character {
+    grid-column: 2;
+    height: 100%;
+  }
+
+  .closure-guide-character img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .closure-dialogue {
+    grid-column: 1;
+    max-height: 100%;
+    overflow-y: auto;
+    padding: 13px 10px;
+    background: rgb(20 25 34 / 96%);
+  }
+
+  .closure-dialogue p {
+    max-height: 7em;
+    overflow-y: auto;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .closure-dialogue::before {
+    top: 50%;
+    right: -8px;
+    bottom: auto;
+    left: auto;
+    border: 0;
+    border-top: 1px solid rgb(248 219 96 / 36%);
+    border-right: 1px solid rgb(248 219 96 / 36%);
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .closure-dialogue-label {
+    font-size: 7px;
+  }
+
   .environment-tag {
     padding: 8px;
     font-size: 8px;
@@ -1078,6 +1590,18 @@ a {
 
   .closure-dialogue-label {
     font-size: 8px;
+  }
+
+  .account-closure-dialogue {
+    padding: 16px 14px;
+  }
+
+  .account-closure-dialogue p {
+    font-size: 12px;
+  }
+
+  .account-closure-character {
+    height: 100%;
   }
 
   .setup-card,
@@ -1146,6 +1670,37 @@ a {
 
   .dashboard-dialogue {
     margin-bottom: 20px;
+  }
+
+  .shell .closure-hero-banner {
+    gap: 0;
+    min-height: 0;
+    padding: 0;
+  }
+
+  .closure-hero-banner .closure-guide-character {
+    width: auto;
+    height: 100%;
+    flex-basis: auto;
+  }
+
+  .closure-hero-banner .closure-dialogue {
+    padding: 13px 10px;
+  }
+
+  .dashboard-shell .dashboard-welcome {
+    gap: 0;
+    padding: 0;
+  }
+
+  .dashboard-welcome .dashboard-guide-character {
+    width: auto;
+    height: 100%;
+  }
+
+  .dashboard-shell .dashboard-dialogue {
+    margin: 0;
+    padding: 13px 10px;
   }
 
   .feature-card {

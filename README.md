@@ -141,6 +141,7 @@ Rincian latar belakang dan rancangan keseluruhan terdapat di [dokumen perancanga
 ## Perubahan Tampilan Terbaru
 
 - **Halaman awal:** gambar Closure ditampilkan sebagai pemandu di samping bubble dialog, bukan sebagai logo. Instruksi dialog berubah mengikuti proses pendaftaran dan verifikasi.
+- **Panduan Closure:** gambar dan bubble di halaman awal maupun login tahap kedua selalu tampil melayang dan tetap terlihat saat halaman digulir. Gambar Closure ditampilkan utuh; bubble dirapatkan hingga penandanya menyentuh gambar. Pada layar kecil, panduan diringkas dan diposisikan di sudut bawah.
 - **Dashboard:** Closure menyambut pengguna melalui bubble dialog dan menjelaskan cakupan akses akun; dashboard kini mendukung folder, file, dan pengaturan izin per item.
 - **Pesan terminal dan bubble:** status serta pesan panduan/error tetap dikirim ke terminal sebagai log `INFO` dan juga ditampilkan pada bubble Closure; perubahan UI tidak menghilangkan log terminal.
 - **Login tahap kedua:** setelah verifikasi USB dan wajah, pengguna masuk atau mendaftar menggunakan username/password dengan hash Argon2id. Akun pertama menjadi admin; akun selanjutnya dapat mendaftar mandiri.

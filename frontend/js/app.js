@@ -3,6 +3,8 @@ const $ = (selector) => document.querySelector(selector);
 function guideClosure(message) {
   const dialogue = $("#closure-dialogue");
   if (dialogue) dialogue.textContent = message;
+  const accountDialogue = $("#account-closure-dialogue");
+  if (accountDialogue) accountDialogue.textContent = message;
 
   const logMessage = window.pywebview?.api?.log_frontend_message;
   if (typeof logMessage === "function") {
@@ -97,9 +99,12 @@ async function initializeAccessPage() {
   async function enterAccountStep() {
     await callApi("complete_hardware_authentication");
     $("#setup-card").hidden = true;
+    $(".intro").hidden = true;
+    $(".shell").classList.add("account-login-shell");
     $(".access-layout").classList.add("account-auth-layout");
     $("#two-factor-panel").hidden = true;
     accountAuthPanel.hidden = false;
+    $("#account-closure-guide").hidden = false;
     const accountState = await callApi("get_account_state");
     setAccountMode(accountState.has_accounts ? "login" : "signup", accountState.has_accounts);
     guideClosure(
