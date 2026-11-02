@@ -4,14 +4,24 @@ Universal Secure Locker adalah prototipe aplikasi desktop brankas digital lokal 
 
 ## Fokus Tahap Awal
 
-Versi ini berfokus pada tampilan dasar dan uji alur autentikasi dua kunci:
+Login memiliki dua tahap:
 
-1. **USB Flashdisk** — aplikasi menambahkan satu file token rahasia `USL-USB-KEY.txt` di flashdisk dan menyimpan hash token di komputer.
-2. **Biometrik wajah** — pengguna mendaftarkan 12 sampel wajah dari webcam. OpenCV mendeteksi wajah dan membuat model pengenal LBPH lokal.
+1. **Kunci perangkat:** USB Flashdisk dan verifikasi wajah melalui webcam.
+2. **Akun:** login atau pendaftaran dengan username dan password yang di-hash memakai Argon2id.
 
-Kedua kunci wajib terdaftar dan lolos verifikasi sebelum dashboard demonstrasi terbuka. Dashboard saat ini hanya menunjukkan bahwa alur akses berhasil; fitur catatan, file locker, dan enkripsi belum dibuat.
+Setelah login, akun dapat membuat folder, mengunggah, melihat/mengunduh, dan memperbarui file. Pemilik item atau admin membagikan izin **buat, lihat, dan ubah** secara terpisah untuk setiap folder atau file. Tidak ada akses otomatis ke item milik akun lain, termasuk bagi admin; admin dapat mengatur izin, tetapi tetap perlu izin item untuk membaca kontennya. Penghapusan item belum tersedia.
 
 Closure tampil sebagai pemandu dengan bubble dialog yang menyambut pengguna dan memperbarui petunjuk sesuai tahap pendaftaran, verifikasi, atau akses dashboard.
+
+## Login Akun dan Pembagian Akses
+
+- Setelah USB dan wajah cocok, pilih **Buat akun** atau **Masuk**. Password minimal 10 karakter dan disimpan sebagai hash Argon2id di `storage/accounts.db`; password asli tidak disimpan.
+- Akun pertama otomatis menjadi admin. Pendaftaran mandiri untuk akun berikutnya tetap tersedia, tetapi akun baru hanya dapat melihat file miliknya sendiri sampai pemilik atau admin memberinya izin.
+- USB dan model wajah tetap menjadi lapisan perangkat bersama untuk instalasi lokal ini. Username/password tahap kedua menentukan akun dan izin data yang digunakan.
+- Admin dapat mengatur izin pada item yang dikelola, tetapi status admin sendiri **tidak** memberikan akses baca ke seluruh isi vault. Pemilik file/folder juga dapat membagikan item miliknya.
+- Hak akses ditetapkan pada tiap item dan tidak diwariskan. Untuk membuka file di dalam folder bersama, penerima perlu hak **lihat** pada seluruh folder induk dan hak **lihat** pada file tersebut. Untuk membuat item di folder bersama, penerima perlu hak **lihat** dan **buat** di folder itu.
+- Hak **ubah** otomatis menyertakan hak **lihat**. Izin dapat dicabut dengan menghilangkan semua centang lalu menyimpan.
+- File disimpan sebagai BLOB di database lokal dan ukuran unggahan dibatasi 10 MiB. Isi file dan database **belum dienkripsi**. Pembatasan akun ini adalah kontrol akses di dalam aplikasi, bukan perlindungan terhadap orang yang dapat membuka database secara langsung dari sistem operasi.
 
 ## Panduan Closure dan Pesan Terminal
 
@@ -33,9 +43,11 @@ Log menggunakan format waktu, level, dan nama logger, misalnya `INFO universal_s
 | Antarmuka | **HTML5, CSS3, JavaScript vanilla** | UI lokal tanpa framework frontend atau proses bundling. |
 | Webcam dan pengenalan wajah | **OpenCV contrib + NumPy** | Deteksi wajah Haar dan pengenal LBPH sederhana untuk demonstrasi. |
 | USB | **Windows API melalui `ctypes`** | Mencari drive removable dan memeriksa token pada flashdisk tanpa dependensi tambahan. |
-| Data autentikasi | **JSON dan model OpenCV lokal** | Menyimpan hash token USB dan model wajah pada folder `storage/`. |
+| Password akun | **Argon2id (`argon2-cffi`)** | Menyimpan hash password akun dengan salt dan parameter Argon2id. |
+| Akun, izin, dan metadata/file | **SQLite melalui `sqlite3` bawaan Python** | Menyimpan akun, hash, metadata, konten file, dan izin per item di `storage/accounts.db`. |
+| Faktor perangkat | **JSON dan model OpenCV lokal** | Menyimpan hash token USB dan model wajah pada folder `storage/`. |
 
-PyWebView dipilih daripada Electron atau API FastAPI/Flask agar tahap awal tetap ringan dan tidak membutuhkan server web terpisah. SQLite, AES-GCM, Argon2id, steganografi, dan audit ledger direncanakan untuk tahap berikutnya dan belum digunakan oleh prototipe ini.
+PyWebView dipilih daripada Electron atau API FastAPI/Flask agar tahap awal tetap ringan dan tidak membutuhkan server web terpisah. AES-GCM, enkripsi database/file, steganografi, dan audit ledger direncanakan untuk tahap berikutnya dan belum digunakan.
 
 ## Kebutuhan
 
@@ -76,8 +88,11 @@ Jika PowerShell menolak aktivasi environment virtual, gunakan Python dari enviro
 4. Sambungkan USB Flashdisk. Tekan tombol perbarui daftar, lalu pilih drive USB yang benar.
 5. Setelah memilih drive, tombol **Daftarkan USB sebagai kunci** tersedia. Tekan tombol tersebut dan setujui konfirmasi.
 6. Pendaftaran USB **tidak memformat flashdisk dan tidak menghapus atau menimpa file yang sudah ada**. Aplikasi hanya membuat satu file token kecil bernama `USL-USB-KEY.txt` di folder utama USB; file token ini jangan dihapus atau diubah.
-7. Setelah status wajah dan USB menunjukkan **Terdaftar**, tekan **Verifikasi dan buka**. Dashboard demonstrasi hanya terbuka jika kedua kunci cocok.
-8. Tekan **Kunci aplikasi** pada dashboard untuk kembali ke layar akses.
+7. Setelah status wajah dan USB menunjukkan **Terdaftar**, tekan **Verifikasi dua kunci**. Jika keduanya cocok, formulir akun akan terbuka.
+8. Buat akun pertama (otomatis admin), atau masuk dengan akun yang sudah ada. Username minimal 3 karakter; password minimal 10 karakter.
+9. Di dashboard, buat folder dan unggah file. Pemilik dapat memilih **Atur akses** untuk memberi akun lain izin per item.
+10. Akun penerima logout lalu login memakai username/password sendiri. Akun tersebut hanya melihat item yang dimiliki atau yang izinnya telah diberikan; untuk item dalam folder, izin lihat harus diberikan pada folder induk dan itemnya.
+11. Tekan **Kunci aplikasi** pada dashboard untuk logout. Login berikutnya kembali memerlukan USB dan wajah.
 
 Untuk menguji penolakan akses, lepaskan flashdisk terdaftar atau coba verifikasi menggunakan wajah yang berbeda. Pendaftaran biometrik tersimpan lokal di `storage/face_model.yml`; hash token tersimpan di `storage/auth_config.json`. Kedua file tersebut tidak ditambahkan ke Git.
 
@@ -86,6 +101,7 @@ Untuk menguji penolakan akses, lepaskan flashdisk terdaftar atau coba verifikasi
 ```text
 universal-secure-locker/
 ├── backend/
+│   ├── database.py            # Akun Argon2id, resource, dan ACL per item
 │   ├── security/
 │   │   ├── biometric_auth.py
 │   │   └── dongle_auth.py
@@ -101,6 +117,9 @@ universal-secure-locker/
 ├── storage/                  # Data autentikasi lokal, diabaikan Git
 ├── main.py
 ├── requirements.txt
+├── tests/
+│   ├── test_account_api.py
+│   └── test_account_database.py
 └── README.md
 ```
 
@@ -113,12 +132,16 @@ Rincian latar belakang dan rancangan keseluruhan terdapat di [dokumen perancanga
 - Pendaftaran USB tidak menjalankan proses format. Aplikasi hanya membuat file token baru di folder utama USB yang dipilih. File yang sudah ada tidak ditimpa; jika file token dengan nama yang sama sudah ada, pendaftaran dibatalkan.
 - LBPH merupakan pengenal wajah sederhana, bukan sistem biometrik modern yang tahan spoofing. Prototipe ini tidak memiliki deteksi keaktifan (*liveness detection*), sehingga foto/video dapat berisiko mengecoh verifikasi. Nilai ambang pengenalan perlu diuji pada kondisi kamera yang beragam.
 - Model wajah dan konfigurasi disimpan lokal tanpa enkripsi pada tahap ini. Amankan komputer dan jangan membagikan folder `storage/`.
+- Hash password tidak dapat mengembalikan password asli, tetapi file database beserta data akun/file tetap lokal dan konten file belum terenkripsi. Atur keamanan OS dan backup database dengan hati-hati.
+- Izin akun berlaku saat mengakses aplikasi. Pengguna yang memiliki akses OS langsung ke `storage/accounts.db` dapat membaca atau mengubah datanya; enkripsi at-rest dan perlindungan integritas database belum dibuat.
 - Kamera hanya digunakan melalui aplikasi lokal; frame tidak dikirim ke layanan internet.
-- Dashboard setelah autentikasi belum menyimpan catatan atau file, dan belum ada enkripsi database maupun file.
+- Dashboard menyimpan folder dan file di database SQLite lokal. Steganografi dan audit ledger belum dibuat; database serta file belum dienkripsi.
 - Jangan mengimplementasikan algoritma kriptografi sendiri pada tahap lanjutan. Gunakan pustaka teruji, misalnya `cryptography` dengan AES-GCM untuk enkripsi terautentikasi dan Argon2id untuk hash password.
 
 ## Perubahan Tampilan Terbaru
 
 - **Halaman awal:** gambar Closure ditampilkan sebagai pemandu di samping bubble dialog, bukan sebagai logo. Instruksi dialog berubah mengikuti proses pendaftaran dan verifikasi.
-- **Dashboard:** Closure menyambut pengguna melalui bubble dialog dan menjelaskan bahwa modul vault masih dalam tahap pengembangan.
+- **Dashboard:** Closure menyambut pengguna melalui bubble dialog dan menjelaskan cakupan akses akun; dashboard kini mendukung folder, file, dan pengaturan izin per item.
 - **Pesan terminal dan bubble:** status serta pesan panduan/error tetap dikirim ke terminal sebagai log `INFO` dan juga ditampilkan pada bubble Closure; perubahan UI tidak menghilangkan log terminal.
+- **Login tahap kedua:** setelah verifikasi USB dan wajah, pengguna masuk atau mendaftar menggunakan username/password dengan hash Argon2id. Akun pertama menjadi admin; akun selanjutnya dapat mendaftar mandiri.
+- **Multiakun dan izin:** dashboard menampilkan folder/file yang dapat diakses akun aktif, dengan izin buat/lihat/ubah yang dikelola terpisah per item. File saat ini dibatasi 10 MiB dan disimpan di SQLite lokal tanpa enkripsi.

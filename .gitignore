@@ -5,4 +5,7 @@ __pycache__/
 storage/auth_config.json
 storage/auth_config.tmp
 storage/face_model.yml
+storage/accounts.db
+storage/accounts.db-shm
+storage/accounts.db-wal
 storage/encrypted_files/

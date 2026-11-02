@@ -14,7 +14,10 @@
         <span class="brand-mark">USL</span>
         <span>Universal <strong>Secure Locker</strong></span>
       </a>
-      <button class="button button-secondary logout-button" id="logout-button" type="button">Kunci aplikasi <span aria-hidden="true">↗</span></button>
+      <div class="account-toolbar">
+        <span class="active-account" id="active-username"></span>
+        <button class="button button-secondary logout-button" id="logout-button" type="button">Kunci aplikasi <span aria-hidden="true">↗</span></button>
+      </div>
     </header>
 
     <section class="dashboard-welcome">
@@ -23,42 +26,67 @@
       </div>
       <div class="closure-dialogue dashboard-dialogue" role="status" aria-live="polite">
         <div class="closure-dialogue-label"><span class="status-dot"></span> CLOSURE <span>• SECURE TERMINAL v1.0</span></div>
-        <p id="closure-dialogue">Selamat datang di brankas lokal! Kedua kunci Anda sudah terverifikasi. Pilih modul yang ingin Anda gunakan; fitur penyimpanan masih dalam pengembangan.</p>
+        <p id="closure-dialogue">Selamat datang di brankas lokal. Buat folder atau tambahkan file; akses setiap item dapat dibagikan secara terpisah.</p>
       </div>
     </section>
 
-    <section class="dashboard-grid" aria-label="Fitur brankas">
-      <article class="card feature-card">
-        <span class="feature-number">01</span>
-        <span class="feature-icon" aria-hidden="true">Aa</span>
-        <h2>Catatan rahasia</h2>
-        <p>Simpan teks pribadi dengan enkripsi.</p>
-        <span class="feature-state">SEGERA HADIR</span>
-      </article>
-      <article class="card feature-card">
-        <span class="feature-number">02</span>
-        <span class="feature-icon" aria-hidden="true">▧</span>
-        <h2>File terenkripsi</h2>
-        <p>Kelola dokumen dalam penyimpanan lokal.</p>
-        <span class="feature-state">SEGERA HADIR</span>
-      </article>
-      <article class="card feature-card">
-        <span class="feature-number">03</span>
-        <span class="feature-icon" aria-hidden="true">⌁</span>
-        <h2>Riwayat aktivitas</h2>
-        <p>Tinjau catatan aktivitas brankas.</p>
-        <span class="feature-state">SEGERA HADIR</span>
-      </article>
+    <section class="card vault-panel" aria-label="Folder dan file yang dapat diakses">
+      <div class="vault-heading">
+        <div>
+          <span class="eyebrow">RUANG PENYIMPANAN AKUN</span>
+          <h2 id="vault-location">Folder utama</h2>
+        </div>
+        <div class="vault-actions">
+          <button class="button button-secondary" id="vault-back-button" type="button" hidden>← Kembali</button>
+          <button class="button button-secondary" id="create-folder-button" type="button">＋ Folder</button>
+          <label class="button button-primary upload-button" for="upload-file-input">＋ Unggah file</label>
+          <input id="upload-file-input" type="file" hidden>
+          <input id="replace-file-input" type="file" hidden>
+        </div>
+      </div>
+      <p class="vault-guidance" id="vault-guidance">Item yang dimiliki atau dibagikan kepada akun Anda akan tampil di sini.</p>
+      <div class="resource-list" id="resource-list" aria-live="polite"></div>
+      <p class="inline-message" id="vault-message" role="status"></p>
     </section>
 
-    <div class="demo-notice">
+    <section class="demo-notice">
       <span aria-hidden="true">i</span>
-      <p><strong>Mode demonstrasi.</strong> Layar ini hanya membuktikan alur dua kunci. Belum ada file atau catatan yang dienkripsi atau disimpan.</p>
-    </div>
+      <p><strong>Izin per item.</strong> Lihat, ubah, dan buat isi folder harus diberikan pemilik/admin pada folder atau file yang sesuai. Izin folder tidak otomatis diwariskan ke item anak.</p>
+    </section>
+
+    <dialog class="app-dialog" id="share-dialog">
+      <form method="dialog" class="dialog-close-row">
+        <button class="dialog-close" aria-label="Tutup">×</button>
+      </form>
+      <span class="eyebrow">AKSES PER ITEM</span>
+      <h2 id="share-dialog-title">Bagikan izin</h2>
+      <p class="dialog-description">Pilih akun dan izin khusus untuk item ini.</p>
+      <label class="form-field">
+        <span>Akun tujuan</span>
+        <select id="share-account-select"></select>
+      </label>
+      <div class="permission-options">
+        <label id="share-create-option"><input id="share-create" type="checkbox"> <span>Buat folder/file di dalam folder</span></label>
+        <label><input id="share-read" type="checkbox"> <span>Lihat / unduh item</span></label>
+        <label><input id="share-update" type="checkbox"> <span>Ubah item</span></label>
+      </div>
+      <p class="dialog-description">Izin pada folder tidak diwariskan ke folder/file di dalamnya. Bagikan setiap item secara terpisah.</p>
+      <button class="button button-primary button-wide" id="save-sharing-button" type="button">Simpan izin</button>
+      <p class="inline-message" id="share-message" role="status"></p>
+    </dialog>
+
+    <dialog class="app-dialog preview-dialog" id="preview-dialog">
+      <form method="dialog" class="dialog-close-row">
+        <button class="dialog-close" aria-label="Tutup">×</button>
+      </form>
+      <span class="eyebrow">PRATINJAU FILE</span>
+      <h2 id="preview-title">File</h2>
+      <pre id="preview-content"></pre>
+    </dialog>
 
     <footer class="footer">
-      <span>Universal Secure Locker <span class="footer-separator">/</span> Akses lokal</span>
-      <span>Webcam + USB</span>
+      <span>Universal Secure Locker <span class="footer-separator">/</span> Akses lokal akun</span>
+      <span>Webcam + USB + Password</span>
     </footer>
   </main>
   <script src="js/api.js"></script>

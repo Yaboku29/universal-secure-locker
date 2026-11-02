@@ -16,6 +16,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   min-width: 760px;
   min-height: 100vh;
@@ -572,6 +576,101 @@ a {
   margin-top: 18px;
 }
 
+.account-auth-layout {
+  display: block;
+  max-width: 470px;
+  margin: 0 auto;
+}
+
+.account-auth-layout .verify-card {
+  position: static;
+}
+
+.account-auth-heading h3,
+.vault-heading h2,
+.app-dialog h2 {
+  margin: 7px 0 0;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 19px;
+  letter-spacing: -0.03em;
+}
+
+.account-auth-heading > p,
+.dialog-description {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.account-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 18px 0 14px;
+}
+
+.account-mode-switch .button.is-selected {
+  border-color: rgb(248 219 96 / 55%);
+  background: rgb(248 219 96 / 10%);
+  color: var(--accent);
+}
+
+.account-auth-panel form {
+  display: grid;
+  gap: 12px;
+}
+
+.form-field {
+  display: grid;
+  gap: 6px;
+  color: #d7dfeb;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.form-field > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.form-field small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.form-field input,
+.form-field select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid #314057;
+  border-radius: 9px;
+  outline: none;
+  background: #111b2c;
+  color: #eef3fb;
+  font: inherit;
+}
+
+.form-field input:focus,
+.form-field select:focus {
+  border-color: var(--accent);
+}
+
+.account-auth-panel form .button-wide {
+  margin-top: 3px;
+}
+
+.account-policy-note {
+  margin: 13px 0 3px;
+  color: #8d9bb1;
+  font-size: 9px;
+  line-height: 1.6;
+}
+
 .registration-button {
   width: 100%;
   min-height: 40px;
@@ -737,6 +836,190 @@ a {
   margin-top: auto;
 }
 
+.account-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.active-account {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.vault-panel {
+  padding: 22px;
+}
+
+.vault-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.vault-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-button {
+  cursor: pointer;
+}
+
+.vault-guidance {
+  margin: 8px 0 16px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.resource-list {
+  display: grid;
+  gap: 8px;
+}
+
+.resource-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 9px 11px;
+  border: 1px solid #28364b;
+  border-radius: 10px;
+  background: rgb(12 20 33 / 55%);
+}
+
+.resource-symbol {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 9px;
+  background: #1b2c3c;
+  color: var(--accent);
+  font-size: 15px;
+}
+
+.resource-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: #e8edf7;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-owner {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.resource-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.resource-actions .button {
+  min-height: 31px;
+  padding: 0 9px;
+  font-size: 9px;
+}
+
+.resource-empty {
+  padding: 22px 10px;
+  border: 1px dashed #34425a;
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.app-dialog {
+  width: min(460px, calc(100% - 32px));
+  max-height: min(85vh, 720px);
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: #121b2c;
+  color: #e8edf7;
+  box-shadow: 0 22px 80px rgb(0 0 0 / 55%);
+}
+
+.app-dialog::backdrop {
+  background: rgb(3 7 14 / 76%);
+  backdrop-filter: blur(3px);
+}
+
+.dialog-close-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -8px -8px 9px;
+}
+
+.dialog-close {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #34425a;
+  border-radius: 8px;
+  background: #19263a;
+  color: #d0d9e7;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.permission-options {
+  display: grid;
+  gap: 10px;
+  margin: 17px 0;
+}
+
+.permission-options label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #d0d9e7;
+  font-size: 10px;
+}
+
+.permission-options input {
+  accent-color: var(--accent);
+}
+
+.app-dialog .button-wide {
+  margin-top: 10px;
+}
+
+.preview-dialog {
+  width: min(720px, calc(100% - 32px));
+}
+
+.preview-dialog pre {
+  max-height: 55vh;
+  overflow: auto;
+  margin: 16px 0 0;
+  padding: 15px;
+  border: 1px solid #2a3648;
+  border-radius: 9px;
+  background: #0b0c10;
+  color: #e8edf7;
+  font: 12px/1.65 Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .logout-button {
   min-height: 36px;
 }
@@ -818,6 +1101,42 @@ a {
 
   .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+
+  .vault-panel {
+    padding: 15px;
+  }
+
+  .vault-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .vault-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .resource-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .resource-actions {
+    width: 100%;
+    padding-left: 46px;
+    justify-content: flex-start;
+  }
+
+  .account-toolbar {
+    gap: 7px;
+  }
+
+  .active-account {
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .dashboard-welcome {

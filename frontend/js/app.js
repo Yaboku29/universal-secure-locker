@@ -36,6 +36,10 @@ async function initializeAccessPage() {
   const faceMessage = $("#face-message");
   const usbMessage = $("#usb-message");
   const loginMessage = $("#login-message");
+  const accountAuthPanel = $("#account-auth-panel");
+  const accountLoginForm = $("#account-login-form");
+  const accountSignupForm = $("#account-signup-form");
+  const accountMessage = $("#account-message");
   let cameraRunning = false;
   let frameTimer = null;
   let frameRequestRunning = false;
@@ -69,6 +73,51 @@ async function initializeAccessPage() {
       guideClosure("Halo! Saya Closure, pemandu brankas ini. Mulai dengan mengaktifkan webcam dan mengambil 12 sampel wajah.");
     }
     return status;
+  }
+
+  function setAccountMode(mode, hasAccounts) {
+    const signingUp = mode === "signup";
+    accountLoginForm.hidden = signingUp;
+    accountSignupForm.hidden = !signingUp;
+    $("#account-login-mode").classList.toggle("is-selected", !signingUp);
+    $("#account-signup-mode").classList.toggle("is-selected", signingUp);
+    $("#account-auth-title").textContent = signingUp
+      ? "Buat akun baru"
+      : "Masuk ke akun";
+    $("#account-auth-description").textContent = signingUp
+      ? hasAccounts
+        ? "Buat akun. Akses ke folder dan file diberikan secara terpisah."
+        : "Akun pertama menjadi admin. Anda dapat membuat akun lain setelahnya."
+      : "Masuk dengan username dan password akun Anda.";
+    $("#account-login-mode").hidden = !hasAccounts;
+    $("#account-message").textContent = "";
+    $("#account-message").classList.remove("is-error", "is-success");
+  }
+
+  async function enterAccountStep() {
+    await callApi("complete_hardware_authentication");
+    $("#setup-card").hidden = true;
+    $(".access-layout").classList.add("account-auth-layout");
+    $("#two-factor-panel").hidden = true;
+    accountAuthPanel.hidden = false;
+    const accountState = await callApi("get_account_state");
+    setAccountMode(accountState.has_accounts ? "login" : "signup", accountState.has_accounts);
+    guideClosure(
+      accountState.has_accounts
+        ? "USB dan wajah cocok! Sekarang masukkan username dan password akun yang ingin Anda buka."
+        : "USB dan wajah cocok! Belum ada akun. Buat akun pertama; akun tersebut akan menjadi admin.",
+    );
+  }
+
+  async function openDashboard(account, verb) {
+    const accountRole = account.is_admin ? "Admin" : "Akun";
+    showMessage(
+      accountMessage,
+      `${verb} sebagai ${account.username}${account.is_admin ? " (admin)" : ""}.`,
+      "success",
+    );
+    guideClosure(`${accountRole} ${account.username} berhasil masuk. Membuka brankas dengan izin akun tersebut.`);
+    window.setTimeout(() => window.location.replace("dashboard.html"), 250);
   }
 
   async function refreshUsbDrives(manualRefresh = false) {
@@ -265,16 +314,70 @@ async function initializeAccessPage() {
         return;
       }
 
-      await callApi("complete_authentication");
-      showMessage(loginMessage, "Kedua kunci cocok. Membuka aplikasi…", "success");
-      guideClosure("Berhasil! Kedua kunci cocok. Selamat datang di brankas Anda.");
-      window.location.replace("dashboard.html");
+      await enterAccountStep();
     } catch (error) {
-      $("#face-check").textContent = "×";
-      showMessage(loginMessage, error.message, "error");
+      showMessage(accountMessage, error.message, "error");
+      if ($("#two-factor-panel").hidden) {
+        accountAuthPanel.hidden = false;
+      } else {
+        $("#face-check").textContent = "×";
+        showMessage(loginMessage, error.message, "error");
+      }
       guideClosure(error.message);
     } finally {
       unlockButton.disabled = false;
+    }
+  });
+
+  $("#account-login-mode").addEventListener("click", () => {
+    setAccountMode("login", true);
+  });
+  $("#account-signup-mode").addEventListener("click", () => {
+    setAccountMode("signup", true);
+  });
+
+  accountLoginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitButton = accountLoginForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    try {
+      const account = await callApi(
+        "login_account",
+        $("#login-username").value,
+        $("#login-password").value,
+      );
+      await openDashboard(account, "Login");
+    } catch (error) {
+      showMessage(accountMessage, error.message, "error");
+      guideClosure(error.message);
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+
+  accountSignupForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitButton = accountSignupForm.querySelector('button[type="submit"]');
+    const password = $("#signup-password").value;
+    if (password !== $("#signup-confirm-password").value) {
+      showMessage(accountMessage, "Konfirmasi password tidak sama.", "error");
+      guideClosure("Konfirmasi password belum sama. Periksa kembali kedua kolom password.");
+      return;
+    }
+
+    submitButton.disabled = true;
+    try {
+      const account = await callApi(
+        "create_account",
+        $("#signup-username").value,
+        password,
+      );
+      await openDashboard(account, "Akun dibuat");
+    } catch (error) {
+      showMessage(accountMessage, error.message, "error");
+      guideClosure(error.message);
+    } finally {
+      submitButton.disabled = false;
     }
   });
 
@@ -300,7 +403,320 @@ async function initializeDashboard() {
     return;
   }
 
-  guideClosure("Selamat datang! Akses Anda sudah terverifikasi. Pilih modul brankas yang tersedia; fitur penyimpanan masih dalam pengembangan.");
+  const account = await callApi("get_current_account");
+  $("#active-username").textContent =
+    `${account.username}${account.is_admin ? " · ADMIN" : ""}`;
+  guideClosure(
+    `Selamat datang, ${account.username}! Anda hanya akan melihat folder dan file yang dimiliki atau dibagikan khusus ke akun ini.`,
+  );
+
+  const resourceList = $("#resource-list");
+  const vaultMessage = $("#vault-message");
+  const uploadInput = $("#upload-file-input");
+  const replaceInput = $("#replace-file-input");
+  const shareDialog = $("#share-dialog");
+  let currentParentId = null;
+  let currentFolderName = "";
+  let itemToReplace = null;
+  let itemToShare = null;
+
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        const result = reader.result;
+        if (typeof result !== "string" || !result.includes(",")) {
+          reject(new Error("File gagal dibaca."));
+          return;
+        }
+        resolve(result.slice(result.indexOf(",") + 1));
+      });
+      reader.addEventListener("error", () => reject(new Error("File gagal dibaca.")));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function makeButton(label, callback, variant = "button-secondary") {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `button ${variant}`;
+    button.textContent = label;
+    button.addEventListener("click", callback);
+    return button;
+  }
+
+  function showVaultError(error) {
+    showMessage(vaultMessage, error.message, "error");
+    guideClosure(error.message);
+  }
+
+  async function loadVault() {
+    resourceList.replaceChildren();
+    $("#vault-location").textContent = currentParentId
+      ? currentFolderName
+      : "Folder utama";
+    $("#vault-back-button").hidden = !currentParentId;
+
+    try {
+      const canCreate = await callApi("can_create_in", currentParentId);
+      $("#create-folder-button").disabled = !canCreate;
+      uploadInput.disabled = !canCreate;
+      $("#vault-guidance").textContent = canCreate
+        ? "Anda dapat menambahkan item di sini. Akses item lain tetap mengikuti izin masing-masing."
+        : "Akun ini dapat melihat item di folder ini tetapi belum memiliki izin untuk membuat item baru.";
+
+      const resources = await callApi("list_resources", currentParentId);
+      if (resources.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "resource-empty";
+        empty.textContent = "Belum ada folder atau file yang dapat diakses di lokasi ini.";
+        resourceList.append(empty);
+      }
+
+      for (const resource of resources) {
+        const row = document.createElement("article");
+        row.className = "resource-row";
+        const symbol = document.createElement("span");
+        symbol.className = "resource-symbol";
+        symbol.textContent = resource.kind === "folder" ? "▰" : "▧";
+        symbol.setAttribute("aria-hidden", "true");
+
+        const name = document.createElement("div");
+        name.className = "resource-name";
+        name.append(document.createTextNode(resource.name));
+        const owner = document.createElement("small");
+        owner.className = "resource-owner";
+        owner.textContent = resource.is_owner
+          ? "Milik Anda"
+          : "Dibagikan kepada Anda";
+        name.append(owner);
+
+        const actions = document.createElement("div");
+        actions.className = "resource-actions";
+        if (resource.kind === "folder") {
+          actions.append(
+            makeButton("Buka", async () => {
+              currentParentId = resource.id;
+              currentFolderName = resource.name;
+              await loadVault();
+            }, "button-primary"),
+          );
+        } else {
+          actions.append(
+            makeButton("Lihat / unduh", async () => {
+              try {
+                const file = await callApi("read_resource", resource.id);
+                const binary = atob(file.content_base64);
+                const bytes = Uint8Array.from(binary, (character) =>
+                  character.charCodeAt(0),
+                );
+                const blob = new Blob([bytes], { type: file.content_type });
+                const isText =
+                  file.content_type.startsWith("text/") ||
+                  /^(application\/(json|xml|javascript))$/.test(file.content_type) ||
+                  /\.(csv|json|md|txt|xml|yaml|yml)$/i.test(file.name);
+                if (isText) {
+                  $("#preview-title").textContent = file.name;
+                  $("#preview-content").textContent = new TextDecoder().decode(bytes);
+                  $("#preview-dialog").showModal();
+                } else {
+                  const objectUrl = URL.createObjectURL(blob);
+                  const download = document.createElement("a");
+                  download.href = objectUrl;
+                  download.download = file.name;
+                  download.click();
+                  URL.revokeObjectURL(objectUrl);
+                }
+              } catch (error) {
+                showVaultError(error);
+              }
+            }),
+          );
+        }
+
+        if (resource.can_update) {
+          actions.append(
+            makeButton("Ubah", async () => {
+              if (resource.kind === "file") {
+                itemToReplace = resource;
+                replaceInput.click();
+                return;
+              }
+              const nextName = window.prompt("Nama baru:", resource.name);
+              if (!nextName || nextName === resource.name) return;
+              try {
+                await callApi("update_resource", resource.id, nextName);
+                showMessage(vaultMessage, "Nama folder berhasil diperbarui.", "success");
+                await loadVault();
+              } catch (error) {
+                showVaultError(error);
+              }
+            }),
+          );
+        }
+
+        if (resource.can_manage) {
+          actions.append(
+            makeButton("Atur akses", async () => openSharingDialog(resource)),
+          );
+        }
+        row.append(symbol, name, actions);
+        resourceList.append(row);
+      }
+      showMessage(vaultMessage, `${resources.length} item dapat diakses di sini.`);
+    } catch (error) {
+      showVaultError(error);
+    }
+  }
+
+  async function openSharingDialog(resource) {
+    itemToShare = resource;
+    $("#share-dialog-title").textContent = `Izin: ${resource.name}`;
+    $("#share-create-option").hidden = resource.kind !== "folder";
+    $("#share-message").textContent = "";
+    try {
+      const result = await callApi("list_accounts_for_sharing", resource.id);
+      const select = $("#share-account-select");
+      select.replaceChildren();
+      for (const target of result.accounts) {
+        select.add(new Option(target.username, String(target.id)));
+      }
+      if (result.accounts.length === 0) {
+        showMessage($("#share-message"), "Belum ada akun lain yang dapat diberi izin.");
+        $("#share-read").checked = false;
+        $("#share-create").checked = false;
+        $("#share-update").checked = false;
+        shareDialog.showModal();
+        return;
+      }
+
+      function updateSelectedAccountPermissions() {
+        const target = result.accounts.find(
+          (entry) => String(entry.id) === select.value,
+        );
+        const permissions = target?.permissions ?? {};
+        $("#share-read").checked = Boolean(permissions.read);
+        $("#share-create").checked = Boolean(permissions.create);
+        $("#share-update").checked = Boolean(permissions.update);
+      }
+      select.onchange = updateSelectedAccountPermissions;
+      updateSelectedAccountPermissions();
+      shareDialog.showModal();
+    } catch (error) {
+      showVaultError(error);
+    }
+  }
+
+  $("#share-update").addEventListener("change", (event) => {
+    if (event.target.checked) $("#share-read").checked = true;
+  });
+  $("#share-create").addEventListener("change", (event) => {
+    if (event.target.checked) $("#share-read").checked = true;
+  });
+  $("#save-sharing-button").addEventListener("click", async () => {
+    const select = $("#share-account-select");
+    if (!itemToShare || !select.value) {
+      showMessage($("#share-message"), "Pilih akun yang akan diberi izin.", "error");
+      return;
+    }
+    const saveButton = $("#save-sharing-button");
+    saveButton.disabled = true;
+    try {
+      await callApi(
+        "set_resource_permissions",
+        itemToShare.id,
+        Number(select.value),
+        $("#share-create").checked,
+        $("#share-read").checked,
+        $("#share-update").checked,
+      );
+      showMessage($("#share-message"), "Izin item berhasil disimpan.", "success");
+      guideClosure(`Izin untuk ${itemToShare.name} sudah diperbarui.`);
+      window.setTimeout(() => shareDialog.close(), 450);
+      await loadVault();
+    } catch (error) {
+      showMessage($("#share-message"), error.message, "error");
+      guideClosure(error.message);
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
+
+  $("#create-folder-button").addEventListener("click", async () => {
+    const name = window.prompt("Nama folder baru:");
+    if (!name) return;
+    try {
+      await callApi("create_resource", name, "folder", currentParentId);
+      showMessage(vaultMessage, "Folder berhasil dibuat.", "success");
+      guideClosure(`Folder ${name} berhasil dibuat. Atur izin folder jika ingin membagikannya.`);
+      await loadVault();
+    } catch (error) {
+      showVaultError(error);
+    }
+  });
+
+  uploadInput.addEventListener("change", async () => {
+    const file = uploadInput.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      showVaultError(new Error("Ukuran file maksimal 10 MiB."));
+      uploadInput.value = "";
+      return;
+    }
+    try {
+      const content = await readFileAsBase64(file);
+      await callApi(
+        "create_resource",
+        file.name,
+        "file",
+        currentParentId,
+        content,
+        file.type || "application/octet-stream",
+      );
+      showMessage(vaultMessage, `${file.name} berhasil disimpan.`, "success");
+      guideClosure(`File ${file.name} berhasil disimpan. Gunakan Atur akses untuk memilih akun yang boleh melihat atau mengubahnya.`);
+      await loadVault();
+    } catch (error) {
+      showVaultError(error);
+    } finally {
+      uploadInput.value = "";
+    }
+  });
+
+  replaceInput.addEventListener("change", async () => {
+    const file = replaceInput.files?.[0];
+    const resource = itemToReplace;
+    if (!file || !resource) return;
+    if (file.size > 10 * 1024 * 1024) {
+      showVaultError(new Error("Ukuran file maksimal 10 MiB."));
+      replaceInput.value = "";
+      return;
+    }
+    try {
+      const content = await readFileAsBase64(file);
+      await callApi(
+        "update_resource",
+        resource.id,
+        file.name,
+        content,
+        file.type || "application/octet-stream",
+      );
+      showMessage(vaultMessage, `${file.name} berhasil diperbarui.`, "success");
+      guideClosure(`File ${file.name} berhasil diperbarui.`);
+      await loadVault();
+    } catch (error) {
+      showVaultError(error);
+    } finally {
+      itemToReplace = null;
+      replaceInput.value = "";
+    }
+  });
+
+  $("#vault-back-button").addEventListener("click", async () => {
+    currentParentId = null;
+    currentFolderName = "";
+    await loadVault();
+  });
 
   $("#logout-button").addEventListener("click", async () => {
     try {
@@ -311,6 +727,8 @@ async function initializeDashboard() {
       guideClosure(error.message);
     }
   });
+
+  await loadVault();
 }
 
 document.addEventListener("DOMContentLoaded", () => {

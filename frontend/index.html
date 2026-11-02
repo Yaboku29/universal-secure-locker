@@ -28,7 +28,7 @@
     </section>
 
     <section class="access-layout" aria-label="Pengaturan dan verifikasi akses">
-      <article class="card setup-card">
+      <article class="card setup-card" id="setup-card">
         <div class="card-heading">
           <div>
             <div class="eyebrow">LANGKAH 01 — PENDAFTARAN PERTAMA</div>
@@ -97,24 +97,67 @@
         </div>
         <p class="verify-description">Saat kedua kunci siap, verifikasi flashdisk dan wajah untuk melanjutkan.</p>
 
-        <div class="factor-row">
-          <span class="factor-icon" aria-hidden="true">⌁</span>
-          <span><strong>USB Flashdisk</strong><small>Token unik pada drive terdaftar</small></span>
-          <span class="factor-check" id="usb-check">—</span>
-        </div>
-        <div class="factor-row">
-          <span class="factor-icon face-icon" aria-hidden="true">◎</span>
-          <span><strong>Biometrik wajah</strong><small>Pengenalan melalui webcam</small></span>
-          <span class="factor-check" id="face-check">—</span>
+        <div id="two-factor-panel">
+          <div class="factor-row">
+            <span class="factor-icon" aria-hidden="true">⌁</span>
+            <span><strong>USB Flashdisk</strong><small>Token unik pada drive terdaftar</small></span>
+            <span class="factor-check" id="usb-check">—</span>
+          </div>
+          <div class="factor-row">
+            <span class="factor-icon face-icon" aria-hidden="true">◎</span>
+            <span><strong>Biometrik wajah</strong><small>Pengenalan melalui webcam</small></span>
+            <span class="factor-check" id="face-check">—</span>
+          </div>
+
+          <button class="button button-primary button-wide" id="unlock-button" type="button" disabled>
+            Verifikasi dua kunci <span aria-hidden="true">→</span>
+          </button>
+          <p class="inline-message" id="login-message" role="status">Daftarkan kedua kunci terlebih dahulu.</p>
         </div>
 
-        <button class="button button-primary button-wide" id="unlock-button" type="button" disabled>
-          Verifikasi dan buka <span aria-hidden="true">→</span>
-        </button>
-        <p class="inline-message" id="login-message" role="status">Daftarkan kedua kunci terlebih dahulu.</p>
+        <section class="account-auth-panel" id="account-auth-panel" hidden>
+          <div class="account-auth-heading">
+            <span class="eyebrow">LANGKAH 02 — AKUN</span>
+            <h3 id="account-auth-title">Masuk ke akun</h3>
+            <p id="account-auth-description">Masuk dengan username dan password akun Anda.</p>
+          </div>
+          <div class="account-mode-switch">
+            <button class="button button-secondary is-selected" id="account-login-mode" type="button">Masuk</button>
+            <button class="button button-secondary" id="account-signup-mode" type="button">Buat akun</button>
+          </div>
+          <form id="account-login-form">
+            <label class="form-field">
+              <span>Username</span>
+              <input id="login-username" name="username" autocomplete="username" minlength="3" maxlength="32" required>
+            </label>
+            <label class="form-field">
+              <span>Password</span>
+              <input id="login-password" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required>
+            </label>
+            <button class="button button-primary button-wide" type="submit">Masuk ke brankas <span aria-hidden="true">→</span></button>
+          </form>
+          <form id="account-signup-form" hidden>
+            <label class="form-field">
+              <span>Username</span>
+              <input id="signup-username" name="username" autocomplete="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9_.\x2D]{3,32}" required>
+            </label>
+            <label class="form-field">
+              <span>Password <small>Minimal 10 karakter</small></span>
+              <input id="signup-password" name="new-password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
+            </label>
+            <label class="form-field">
+              <span>Ulangi password</span>
+              <input id="signup-confirm-password" name="confirm-password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required>
+            </label>
+            <button class="button button-primary button-wide" type="submit">Daftarkan akun</button>
+          </form>
+          <p class="account-policy-note">Password disimpan sebagai hash Argon2id. Akun baru tidak mendapat akses ke file akun lain sampai pemilik atau admin membagikannya.</p>
+          <p class="inline-message" id="account-message" role="status"></p>
+        </section>
+
         <div class="privacy-note">
           <span aria-hidden="true">◈</span>
-          <p>Semua proses berjalan lokal di komputer ini. Gambar webcam tidak dikirim ke internet.</p>
+          <p>USB dan wajah diverifikasi lebih dahulu; akun username/password menjadi langkah login kedua.</p>
         </div>
       </aside>
     </section>
