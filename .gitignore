@@ -9,3 +9,4 @@ storage/accounts.db
 storage/accounts.db-shm
 storage/accounts.db-wal
 storage/encrypted_files/
+/storage/users/

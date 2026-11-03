@@ -695,7 +695,8 @@ body.camera-preview-floating .camera-frame {
 }
 
 .form-field input,
-.form-field select {
+.form-field select,
+.form-field textarea {
   width: 100%;
   min-height: 40px;
   padding: 0 11px;
@@ -708,8 +709,21 @@ body.camera-preview-floating .camera-frame {
 }
 
 .form-field input:focus,
-.form-field select:focus {
+.form-field select:focus,
+.form-field textarea:focus {
   border-color: var(--accent);
+}
+
+.form-field textarea {
+  min-height: 100px;
+  padding: 10px 11px;
+  resize: vertical;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.form-field textarea[readonly] {
+  color: #9aa8bb;
 }
 
 .account-auth-panel form .button-wide {
@@ -903,6 +917,65 @@ body.camera-preview-floating .camera-frame {
 
 .vault-panel {
   padding: 22px;
+}
+
+.message-crypto-panel {
+  margin-top: 20px;
+  padding: 22px;
+}
+
+.crypto-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.crypto-heading h2 {
+  margin: 7px 0 0;
+  font-size: 17px;
+}
+
+.crypto-notice {
+  margin: 12px 0 16px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.crypto-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.crypto-card {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #28364b;
+  border-radius: 12px;
+  background: rgb(12 20 33 / 55%);
+}
+
+.crypto-card h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.crypto-card .form-field {
+  min-width: 0;
+}
+
+.crypto-card .button {
+  justify-self: start;
+  min-height: 37px;
+}
+
+.message-crypto-panel > .inline-message {
+  margin-bottom: 0;
 }
 
 .vault-heading {
@@ -1157,6 +1230,7 @@ body.camera-preview-floating .camera-frame {
   }
 
   .dashboard-shell > .vault-panel,
+  .dashboard-shell > .message-crypto-panel,
   .dashboard-shell > .demo-notice,
   .dashboard-shell > .footer {
     margin-right: calc(min(440px, 38vw) + 24px);
@@ -1309,6 +1383,7 @@ body.camera-preview-floating .camera-frame {
   }
 
   .dashboard-shell > .vault-panel,
+  .dashboard-shell > .message-crypto-panel,
   .dashboard-shell > .demo-notice,
   .dashboard-shell > .footer {
     margin-right: calc(min(360px, 42vw) + 24px);
@@ -1383,6 +1458,10 @@ body.camera-preview-floating .camera-frame {
 
   .access-layout {
     grid-template-columns: 1fr;
+  }
+
+  .crypto-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .verify-card {

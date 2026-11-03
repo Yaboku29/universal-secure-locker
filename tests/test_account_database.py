@@ -41,6 +41,11 @@ class AccountDatabaseTests(unittest.TestCase):
         file_id = self.database.create_resource(
             self.owner["id"], "private.txt", "file", content=b"private", content_type="text/plain"
         )
+        with closing(sqlite3.connect(self.database.database_path)) as connection:
+            stored_content = connection.execute(
+                "SELECT content FROM resources WHERE id = ?", (file_id,)
+            ).fetchone()[0]
+        self.assertIsNone(stored_content)
         with self.assertRaises(PermissionError):
             self.database.read_file(self.outsider["id"], file_id)
         with self.assertRaises(PermissionError):
@@ -48,6 +53,91 @@ class AccountDatabaseTests(unittest.TestCase):
                 self.outsider["id"], file_id, "changed.txt", b"changed", "text/plain"
             )
         self.assertEqual(self.database.list_resources(self.outsider["id"]), [])
+
+    def test_account_files_and_nested_folders_are_stored_on_disk(self) -> None:
+        folder_id = self.database.create_resource(
+            self.owner["id"], "private-folder", "folder"
+        )
+        file_id = self.database.create_resource(
+            self.owner["id"],
+            "private.txt",
+            "file",
+            folder_id,
+            b"private",
+            "text/plain",
+        )
+        account_directory = (
+            self.database.users_dir
+            / f"account-{self.owner['id']}-{self.owner['username']}"
+        )
+        folder_path = account_directory / "items" / folder_id
+        file_path = folder_path / f"{file_id}.blob"
+
+        self.assertTrue(folder_path.is_dir())
+        self.assertEqual(file_path.read_bytes(), b"private")
+        self.assertEqual(
+            self.database.read_file(self.owner["id"], file_id)["content"],
+            b"private",
+        )
+
+    def test_existing_database_blobs_are_migrated_to_account_storage(self) -> None:
+        file_id = self.database.create_resource(
+            self.owner["id"], "legacy.txt", "file", content=b"legacy-data"
+        )
+        with closing(sqlite3.connect(self.database.database_path)) as connection:
+            connection.execute(
+                "UPDATE resources SET content = ?, storage_path = NULL WHERE id = ?",
+                (b"legacy-data", file_id),
+            )
+            connection.commit()
+
+        migrated_database = AccountDatabase(self.storage_dir)
+
+        account_directory = (
+            self.storage_dir
+            / "users"
+            / f"account-{self.owner['id']}-{self.owner['username']}"
+        )
+        file_path = account_directory / "items" / f"{file_id}.blob"
+        with closing(sqlite3.connect(self.database.database_path)) as connection:
+            stored_content = connection.execute(
+                "SELECT content FROM resources WHERE id = ?", (file_id,)
+            ).fetchone()[0]
+        self.assertIsNone(stored_content)
+        self.assertEqual(file_path.read_bytes(), b"legacy-data")
+        self.assertEqual(
+            migrated_database.read_file(self.owner["id"], file_id)["content"],
+            b"legacy-data",
+        )
+
+    def test_encrypted_message_save_uses_incremented_text_filenames(self) -> None:
+        first_name = self.database.save_encrypted_message(
+            self.owner["id"], "manual-ciphertext-1"
+        )
+        second_name = self.database.save_encrypted_message(
+            self.owner["id"], "manual-ciphertext-2"
+        )
+
+        self.assertEqual(first_name, "pesan_terenkripsi_1.txt")
+        self.assertEqual(second_name, "pesan_terenkripsi_2.txt")
+        resources = self.database.list_resources(self.owner["id"])
+        saved = next(item for item in resources if item["name"] == second_name)
+        account_directory = (
+            self.database.users_dir
+            / f"account-{self.owner['id']}-{self.owner['username']}"
+        )
+        message_path = account_directory / "items" / second_name
+        self.assertEqual(
+            message_path.read_text(encoding="utf-8"), "manual-ciphertext-2"
+        )
+        reopened_database = AccountDatabase(self.storage_dir)
+        self.assertTrue(message_path.is_file())
+        self.assertEqual(
+            reopened_database.read_file(
+                self.owner["id"], str(saved["id"])
+            )["content"],
+            b"manual-ciphertext-2",
+        )
 
     def test_file_size_is_limited(self) -> None:
         with self.assertRaisesRegex(ValueError, "maksimal 10 MiB"):

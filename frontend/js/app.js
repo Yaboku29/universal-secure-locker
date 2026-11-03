@@ -714,6 +714,51 @@ async function initializeDashboard() {
     }
   });
 
+  $("#encrypt-message-button").addEventListener("click", () => {
+    showMessage(
+      $("#crypto-message"),
+      "Placeholder: algoritma enkripsi belum diimplementasikan. Isi ciphertext secara manual sebelum menyimpan.",
+    );
+    guideClosure("Fitur enkripsi pesan masih placeholder. Pesan asli tidak dienkripsi oleh aplikasi.");
+  });
+
+  $("#decrypt-message-button").addEventListener("click", () => {
+    showMessage(
+      $("#crypto-message"),
+      "Placeholder: algoritma dekripsi belum diimplementasikan.",
+    );
+    guideClosure("Fitur dekripsi pesan belum aktif; aplikasi belum memproses ciphertext.");
+  });
+
+  $("#save-encrypted-message-button").addEventListener("click", async (event) => {
+    const saveButton = event.currentTarget;
+    const ciphertext = $("#encrypted-message-output").value;
+    if (!ciphertext.trim()) {
+      showMessage($("#crypto-message"), "Isi ciphertext terlebih dahulu.", "error");
+      return;
+    }
+
+    saveButton.disabled = true;
+    try {
+      const filename = await callApi("save_encrypted_message", ciphertext);
+      $("#encrypted-message-output").value = "";
+      currentParentId = null;
+      currentFolderName = "";
+      await loadVault();
+      showMessage(
+        $("#crypto-message"),
+        `Ciphertext disimpan di folder akun sebagai ${filename}.`,
+        "success",
+      );
+      guideClosure(`Ciphertext disimpan sebagai ${filename} di folder akun lokal.`);
+    } catch (error) {
+      showMessage($("#crypto-message"), error.message, "error");
+      guideClosure(error.message);
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
+
   uploadInput.addEventListener("change", async () => {
     const file = uploadInput.files?.[0];
     if (!file) return;

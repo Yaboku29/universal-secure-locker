@@ -21,6 +21,7 @@ class AccountDatabase:
     def __init__(self, storage_dir: Path) -> None:
         self.storage_dir = storage_dir
         self.database_path = storage_dir / "accounts.db"
+        self.users_dir = storage_dir / "users"
         self.password_hasher = PasswordHasher(
             time_cost=3,
             memory_cost=65536,
@@ -28,6 +29,7 @@ class AccountDatabase:
         )
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self._initialize_schema()
+        self._migrate_files_to_local_storage()
 
     @contextmanager
     def _connect(self) -> Generator[sqlite3.Connection, None, None]:
@@ -63,6 +65,7 @@ class AccountDatabase:
                     kind TEXT NOT NULL CHECK (kind IN ('folder', 'file')),
                     content BLOB,
                     content_type TEXT,
+                    storage_path TEXT,
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
@@ -84,6 +87,111 @@ class AccountDatabase:
                     ON resource_permissions(account_id);
                 """
             )
+            columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(resources)")
+            }
+            if "storage_path" not in columns:
+                connection.execute(
+                    "ALTER TABLE resources ADD COLUMN storage_path TEXT"
+                )
+
+    def _account_directory(self, account_id: int, username: str) -> Path:
+        safe_username = self._validate_username(username)
+        return self.users_dir / f"account-{account_id}-{safe_username}"
+
+    @staticmethod
+    def _relative_resource_path(
+        connection: sqlite3.Connection,
+        resource_id: str,
+        kind: str,
+        parent_id: str | None,
+    ) -> Path:
+        folder_ids: list[str] = []
+        while parent_id is not None:
+            parent = AccountDatabase._get_resource(connection, parent_id)
+            if parent["kind"] != "folder":
+                raise ValueError("Folder induk tidak valid.")
+            try:
+                folder_ids.append(str(uuid.UUID(str(parent["id"]))))
+            except ValueError as error:
+                raise RuntimeError("ID folder penyimpanan tidak valid.") from error
+            parent_id = parent["parent_id"]
+        parts = ["items", *reversed(folder_ids)]
+        try:
+            safe_resource_id = str(uuid.UUID(resource_id))
+        except ValueError as error:
+            raise RuntimeError("ID item penyimpanan tidak valid.") from error
+        if kind == "folder":
+            parts.append(safe_resource_id)
+        else:
+            parts.append(f"{safe_resource_id}.blob")
+        return Path(*parts)
+
+    @staticmethod
+    def _resolve_storage_path(account_directory: Path, relative_path: Path) -> Path:
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            raise RuntimeError("Lokasi file akun tidak valid.")
+        root = account_directory.resolve()
+        path = (root / relative_path).resolve()
+        if path == root or not path.is_relative_to(root):
+            raise RuntimeError("Lokasi file berada di luar folder akun.")
+        return path
+
+    def _migrate_files_to_local_storage(self) -> None:
+        self.users_dir.mkdir(parents=True, exist_ok=True)
+        with self._connect() as connection:
+            accounts = connection.execute(
+                "SELECT id, username FROM accounts"
+            ).fetchall()
+            account_directories = {
+                int(account["id"]): self._account_directory(
+                    int(account["id"]), str(account["username"])
+                )
+                for account in accounts
+            }
+            for directory in account_directories.values():
+                directory.mkdir(parents=True, exist_ok=True)
+
+            resources = connection.execute(
+                """
+                SELECT id, owner_id, parent_id, name, kind, content, storage_path
+                FROM resources ORDER BY created_at, id
+                """
+            ).fetchall()
+            for resource in resources:
+                owner_id = int(resource["owner_id"])
+                owner_directory = account_directories.get(owner_id)
+                if owner_directory is None:
+                    raise RuntimeError("Folder penyimpanan akun tidak ditemukan.")
+                relative_path = (
+                    Path(str(resource["storage_path"]))
+                    if resource["storage_path"] is not None
+                    else self._relative_resource_path(
+                        connection,
+                        str(resource["id"]),
+                        str(resource["kind"]),
+                        resource["parent_id"],
+                    )
+                )
+                path = self._resolve_storage_path(owner_directory, relative_path)
+                if resource["kind"] == "folder":
+                    path.mkdir(parents=True, exist_ok=True)
+                else:
+                    content = resource["content"]
+                    if content is not None:
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_bytes(bytes(content))
+                    elif resource["storage_path"] is None and not path.exists():
+                        path.parent.mkdir(parents=True, exist_ok=True)
+
+                connection.execute(
+                    """
+                    UPDATE resources SET storage_path = ?, content = NULL
+                    WHERE id = ?
+                    """,
+                    (str(relative_path), resource["id"]),
+                )
 
     @staticmethod
     def _validate_account_id(account_id: int) -> None:
@@ -163,6 +271,9 @@ class AccountDatabase:
                 "SELECT id, username, is_admin FROM accounts WHERE id = ?",
                 (account_id,),
             ).fetchone()
+            self._account_directory(account_id, str(row["username"])).mkdir(
+                parents=True, exist_ok=True
+            )
         return self._account_dict(row)
 
     def authenticate(
@@ -221,7 +332,7 @@ class AccountDatabase:
         row = connection.execute(
             """
             SELECT id, owner_id, parent_id, name, kind, content, content_type,
-                   created_at, updated_at
+                   storage_path, created_at, updated_at
             FROM resources WHERE id = ?
             """,
             (resource_id,),
@@ -382,30 +493,112 @@ class AccountDatabase:
 
         resource_id = str(uuid.uuid4())
         with self._connect() as connection:
-            if parent_id is not None:
-                parent = self._get_resource(connection, parent_id)
-                if parent["kind"] != "folder":
-                    raise ValueError("Folder induk tidak valid.")
-                self._require_resource_access(connection, account_id, parent, "read")
-                if not self._has_permission(connection, account_id, parent, "create"):
-                    raise PermissionError("Tidak memiliki izin membuat item di folder ini.")
-            connection.execute(
-                """
-                INSERT INTO resources
-                    (id, owner_id, parent_id, name, kind, content, content_type)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    resource_id,
-                    account_id,
-                    parent_id,
-                    name,
-                    kind,
-                    content if kind == "file" else None,
-                    content_type if kind == "file" else None,
-                ),
+            self._insert_resource(
+                connection,
+                account_id,
+                resource_id,
+                name,
+                kind,
+                parent_id,
+                content,
+                content_type,
             )
         return resource_id
+
+    def _insert_resource(
+        self,
+        connection: sqlite3.Connection,
+        account_id: int,
+        resource_id: str,
+        name: str,
+        kind: str,
+        parent_id: str | None,
+        content: bytes | None,
+        content_type: str | None,
+        storage_path: Path | None = None,
+    ) -> None:
+        if parent_id is not None:
+            parent = self._get_resource(connection, parent_id)
+            if parent["kind"] != "folder":
+                raise ValueError("Folder induk tidak valid.")
+            self._require_resource_access(connection, account_id, parent, "read")
+            if not self._has_permission(connection, account_id, parent, "create"):
+                raise PermissionError("Tidak memiliki izin membuat item di folder ini.")
+
+        account = connection.execute(
+            "SELECT username FROM accounts WHERE id = ?", (account_id,)
+        ).fetchone()
+        if account is None:
+            raise ValueError("Akun tidak ditemukan.")
+        relative_path = storage_path or self._relative_resource_path(
+            connection, resource_id, kind, parent_id
+        )
+        account_directory = self._account_directory(
+            account_id, str(account["username"])
+        )
+        path = self._resolve_storage_path(account_directory, relative_path)
+        if kind == "folder":
+            path.mkdir(parents=True, exist_ok=True)
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content or b"")
+        connection.execute(
+            """
+            INSERT INTO resources
+                (id, owner_id, parent_id, name, kind, content, content_type, storage_path)
+            VALUES (?, ?, ?, ?, ?, NULL, ?, ?)
+            """,
+            (
+                resource_id,
+                account_id,
+                parent_id,
+                name,
+                kind,
+                content_type if kind == "file" else None,
+                str(relative_path),
+            ),
+        )
+
+    def save_encrypted_message(self, account_id: int, message: str) -> str:
+        self._validate_account_id(account_id)
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError("Isi pesan terenkripsi tidak boleh kosong.")
+        content = message.encode("utf-8")
+        if len(content) > self.max_file_size:
+            raise ValueError("Ukuran pesan maksimal 10 MiB.")
+
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            names = connection.execute(
+                """
+                SELECT name FROM resources
+                WHERE owner_id = ? AND parent_id IS NULL AND kind = 'file'
+                """,
+                (account_id,),
+            ).fetchall()
+            used_numbers = {
+                int(match.group(1))
+                for row in names
+                if (match := re.fullmatch(
+                    r"pesan_terenkripsi_(\d+)\.txt", str(row["name"]), re.IGNORECASE
+                ))
+            }
+            number = 1
+            while number in used_numbers:
+                number += 1
+            name = f"pesan_terenkripsi_{number}.txt"
+            self._insert_resource(
+                connection,
+                account_id,
+                str(uuid.uuid4()),
+                name,
+                "file",
+                None,
+                content,
+                "text/plain; charset=utf-8",
+                Path("items") / name,
+            )
+        return name
 
     def read_file(self, account_id: int, resource_id: str) -> dict[str, bytes | str]:
         self._validate_account_id(account_id)
@@ -414,15 +607,30 @@ class AccountDatabase:
             if row["kind"] != "file":
                 raise ValueError("Item tersebut bukan file.")
             self._require_resource_access(connection, account_id, row, "read")
-            if row["content"] is None:
-                raise RuntimeError("Isi file tidak ditemukan.")
-            return {
-                "name": str(row["name"]),
-                "content_type": str(
-                    row["content_type"] or "application/octet-stream"
-                ),
-                "content": bytes(row["content"]),
-            }
+            owner = connection.execute(
+                "SELECT username FROM accounts WHERE id = ?", (row["owner_id"],)
+            ).fetchone()
+            if owner is None or not row["storage_path"]:
+                raise RuntimeError("Lokasi file tidak ditemukan.")
+            account_directory = self._account_directory(
+                int(row["owner_id"]), str(owner["username"])
+            ).resolve()
+            path = (account_directory / str(row["storage_path"])).resolve()
+            if not path.is_relative_to(account_directory):
+                raise RuntimeError("Lokasi file berada di luar folder akun.")
+            name = str(row["name"])
+            content_type = str(
+                row["content_type"] or "application/octet-stream"
+            )
+        try:
+            content = path.read_bytes()
+        except OSError as error:
+            raise RuntimeError("Isi file lokal tidak dapat dibaca.") from error
+        return {
+            "name": name,
+            "content_type": content_type,
+            "content": content,
+        }
 
     def update_resource(
         self,
@@ -450,19 +658,30 @@ class AccountDatabase:
                 raise ValueError("Pilih file baru untuk memperbarui isi file.")
             if row["kind"] == "folder" and content is not None:
                 raise ValueError("Folder tidak dapat berisi data file.")
+            if row["kind"] == "file":
+                owner = connection.execute(
+                    "SELECT username FROM accounts WHERE id = ?", (row["owner_id"],)
+                ).fetchone()
+                if owner is None or not row["storage_path"]:
+                    raise RuntimeError("Lokasi file tidak ditemukan.")
+                account_directory = self._account_directory(
+                    int(row["owner_id"]), str(owner["username"])
+                ).resolve()
+                path = (account_directory / str(row["storage_path"])).resolve()
+                if not path.is_relative_to(account_directory):
+                    raise RuntimeError("Lokasi file berada di luar folder akun.")
+                path.write_bytes(content)
             connection.execute(
                 """
                 UPDATE resources
-                SET name = ?, content = CASE WHEN ? IS NULL THEN content ELSE ? END,
-                    content_type = CASE
-                        WHEN ? IS NULL THEN content_type ELSE ? END,
+                SET name = ?,
+                    content = NULL,
+                    content_type = CASE WHEN ? IS NULL THEN content_type ELSE ? END,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """,
                 (
                     name,
-                    content,
-                    content,
                     content_type,
                     content_type,
                     resource_id,

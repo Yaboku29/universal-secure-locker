@@ -45,8 +45,18 @@ class AccountApiTests(unittest.TestCase):
 
         account = self.api.create_account("first-user", "first-password-123")
         self.assertTrue(account["is_admin"])
+        self.assertTrue(
+            (
+                self.database.users_dir
+                / f"account-{account['id']}-{account['username']}"
+            ).is_dir()
+        )
         self.assertTrue(self.api.is_authenticated())
         self.assertEqual(self.api.get_current_account()["username"], "first-user")
+        self.assertEqual(
+            self.api.save_encrypted_message("manual-ciphertext"),
+            "pesan_terenkripsi_1.txt",
+        )
 
     def test_account_creation_and_login_are_blocked_after_logout(self) -> None:
         self.api._usb_verified = True
@@ -59,6 +69,8 @@ class AccountApiTests(unittest.TestCase):
             self.api.create_account("second-user", "second-password-123")
         with self.assertRaises(PermissionError):
             self.api.login_account("first-user", "first-password-123")
+        with self.assertRaises(PermissionError):
+            self.api.save_encrypted_message("ciphertext-after-logout")
         self.assertFalse(self.api.is_authenticated())
 
 

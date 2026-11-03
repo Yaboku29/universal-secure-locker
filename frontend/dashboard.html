@@ -49,6 +49,45 @@
       <p class="inline-message" id="vault-message" role="status"></p>
     </section>
 
+    <section class="card message-crypto-panel" aria-labelledby="message-crypto-title">
+      <div class="crypto-heading">
+        <div>
+          <span class="eyebrow">PLACEHOLDER KRIPTOGRAFI</span>
+          <h2 id="message-crypto-title">Enkripsi dan dekripsi pesan</h2>
+        </div>
+        <span class="step-badge">Belum aktif</span>
+      </div>
+      <p class="crypto-notice">Algoritma enkripsi/dekripsi belum diimplementasikan. Tombol di bawah hanya placeholder; isi hasil ciphertext sendiri untuk menguji penyimpanan lokal.</p>
+      <div class="crypto-grid">
+        <section class="crypto-card" aria-labelledby="encrypt-message-title">
+          <h3 id="encrypt-message-title">Enkripsi pesan</h3>
+          <label class="form-field" for="plain-message-input">
+            <span>Pesan asli</span>
+            <textarea id="plain-message-input" rows="4" placeholder="Tempat menulis pesan asli (belum dienkripsi)"></textarea>
+          </label>
+          <button class="button button-secondary" id="encrypt-message-button" type="button">Enkripsi — placeholder</button>
+          <label class="form-field" for="encrypted-message-output">
+            <span>Hasil enkripsi / ciphertext</span>
+            <textarea id="encrypted-message-output" rows="4" placeholder="Isi ciphertext hasil enkripsi di sini"></textarea>
+          </label>
+          <button class="button button-primary" id="save-encrypted-message-button" type="button">Simpan ciphertext sebagai .txt</button>
+        </section>
+        <section class="crypto-card" aria-labelledby="decrypt-message-title">
+          <h3 id="decrypt-message-title">Dekripsi pesan</h3>
+          <label class="form-field" for="encrypted-message-input">
+            <span>Ciphertext</span>
+            <textarea id="encrypted-message-input" rows="4" placeholder="Tempat menempel pesan terenkripsi"></textarea>
+          </label>
+          <button class="button button-secondary" id="decrypt-message-button" type="button">Dekripsi — placeholder</button>
+          <label class="form-field" for="decrypted-message-output">
+            <span>Hasil dekripsi</span>
+            <textarea id="decrypted-message-output" rows="4" placeholder="Hasil dekripsi akan tampil di sini" readonly></textarea>
+          </label>
+        </section>
+      </div>
+      <p class="inline-message" id="crypto-message" role="status"></p>
+    </section>
+
     <section class="demo-notice">
       <span aria-hidden="true">i</span>
       <p><strong>Izin per item.</strong> Lihat, ubah, dan buat isi folder harus diberikan pemilik/admin pada folder atau file yang sesuai. Izin folder tidak otomatis diwariskan ke item anak.</p>

@@ -195,6 +195,11 @@ class LockerApi:
             content_type,
         )
 
+    def save_encrypted_message(self, message: str) -> str:
+        return self.accounts.save_encrypted_message(
+            self._require_account_authentication(), message
+        )
+
     def set_resource_permissions(
         self,
         resource_id: str,
