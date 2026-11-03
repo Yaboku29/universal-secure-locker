@@ -42,6 +42,7 @@ async function initializeAccessPage() {
   const accountLoginForm = $("#account-login-form");
   const accountSignupForm = $("#account-signup-form");
   const accountMessage = $("#account-message");
+  const backToBiometricsButton = $("#back-to-biometrics-button");
   let cameraRunning = false;
   let frameTimer = null;
   let frameRequestRunning = false;
@@ -98,12 +99,22 @@ async function initializeAccessPage() {
 
   async function enterAccountStep() {
     await callApi("complete_hardware_authentication");
+    if (frameTimer !== null) {
+      window.clearInterval(frameTimer);
+      frameTimer = null;
+    }
+    cameraRunning = false;
+    preview.hidden = true;
+    placeholder.hidden = false;
+    document.body.classList.remove("camera-preview-floating");
     $("#setup-card").hidden = true;
     $(".intro").hidden = true;
     $(".shell").classList.add("account-login-shell");
     $(".access-layout").classList.add("account-auth-layout");
     $("#two-factor-panel").hidden = true;
     accountAuthPanel.hidden = false;
+    $(".environment-tag").hidden = true;
+    backToBiometricsButton.hidden = false;
     $("#account-closure-guide").hidden = false;
     const accountState = await callApi("get_account_state");
     setAccountMode(accountState.has_accounts ? "login" : "signup", accountState.has_accounts);
@@ -166,6 +177,7 @@ async function initializeAccessPage() {
     try {
       const message = await callApi("start_camera");
       cameraRunning = true;
+      document.body.classList.add("camera-preview-floating");
       cameraButton.textContent = "Webcam aktif";
       captureButton.disabled = (await callApi("get_status")).face_registered;
       preview.hidden = false;
@@ -180,6 +192,7 @@ async function initializeAccessPage() {
         } catch (error) {
           window.clearInterval(frameTimer);
           cameraRunning = false;
+          document.body.classList.remove("camera-preview-floating");
           captureButton.disabled = true;
           showMessage(faceMessage, error.message, "error");
           guideClosure(error.message);
@@ -189,6 +202,7 @@ async function initializeAccessPage() {
       }, 250);
       return true;
     } catch (error) {
+      document.body.classList.remove("camera-preview-floating");
       showMessage(faceMessage, error.message, "error");
       guideClosure(error.message);
       cameraButton.disabled = false;
@@ -339,6 +353,46 @@ async function initializeAccessPage() {
   });
   $("#account-signup-mode").addEventListener("click", () => {
     setAccountMode("signup", true);
+  });
+
+  backToBiometricsButton.addEventListener("click", async () => {
+    backToBiometricsButton.disabled = true;
+    try {
+      await callApi("logout");
+      if (frameTimer !== null) {
+        window.clearInterval(frameTimer);
+        frameTimer = null;
+      }
+      cameraRunning = false;
+      frameRequestRunning = false;
+      document.body.classList.remove("camera-preview-floating");
+      cameraButton.disabled = false;
+      cameraButton.textContent = "Aktifkan webcam";
+      preview.hidden = true;
+      placeholder.hidden = false;
+      $("#setup-card").hidden = false;
+      $(".intro").hidden = false;
+      $(".shell").classList.remove("account-login-shell");
+      $(".access-layout").classList.remove("account-auth-layout");
+      $("#two-factor-panel").hidden = false;
+      accountAuthPanel.hidden = true;
+      $(".environment-tag").hidden = false;
+      backToBiometricsButton.hidden = true;
+      $("#account-closure-guide").hidden = true;
+      $("#usb-check").textContent = "—";
+      $("#usb-check").classList.remove("is-ready");
+      $("#face-check").textContent = "—";
+      $("#face-check").classList.remove("is-ready");
+      accountLoginForm.reset();
+      accountSignupForm.reset();
+      showMessage(loginMessage, "Kembali ke verifikasi biometrik. Verifikasi USB dan wajah kembali diperlukan.");
+      await refreshStatus();
+    } catch (error) {
+      showMessage(accountMessage, error.message, "error");
+      guideClosure(error.message);
+    } finally {
+      backToBiometricsButton.disabled = false;
+    }
   });
 
   accountLoginForm.addEventListener("submit", async (event) => {

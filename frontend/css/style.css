@@ -103,6 +103,13 @@ a {
   font-size: 9px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .status-dot {
   width: 7px;
   height: 7px;
@@ -326,6 +333,18 @@ a {
   background:
     linear-gradient(135deg, rgb(29 44 65 / 68%), rgb(12 20 34 / 95%)),
     #111b2c;
+}
+
+body.camera-preview-floating .camera-frame {
+  position: fixed;
+  z-index: 6;
+  top: calc(50% + 100px);
+  right: max(36px, calc((100vw - 1120px) / 2));
+  width: min(322px, 26vw, calc((50vh - 130px) * 4 / 3));
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border-color: rgb(248 219 96 / 45%);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 45%);
 }
 
 .camera-frame img {
@@ -1203,6 +1222,12 @@ a {
 }
 
 @media (min-width: 561px) and (max-width: 1100px) {
+  body.camera-preview-floating .camera-frame {
+    top: calc(50% + 110px);
+    right: 16px;
+    width: min(198px, 23vw, calc((50vh - 100px) * 4 / 3));
+  }
+
   .closure-hero-banner {
     position: fixed;
     z-index: 5;
@@ -1366,6 +1391,14 @@ a {
 }
 
 @media (max-width: 560px) {
+  body.camera-preview-floating .camera-frame {
+    top: calc(12px + min(220px, 32vh) + 10px);
+    right: 12px;
+    bottom: auto;
+    width: min(180px, 46vw);
+    border-radius: 9px;
+  }
+
   .dashboard-welcome {
     position: fixed;
     z-index: 5;
@@ -1434,7 +1467,8 @@ a {
     position: fixed;
     z-index: 5;
     right: 12px;
-    bottom: 12px;
+    top: 12px;
+    bottom: auto;
     width: min(280px, calc(100vw - 24px));
     height: min(220px, 32vh);
     grid-template-columns: minmax(0, 1fr) minmax(72px, 0.62fr);
@@ -1495,7 +1529,8 @@ a {
     position: fixed;
     z-index: 5;
     right: 12px;
-    bottom: 12px;
+    top: 12px;
+    bottom: auto;
     width: min(280px, calc(100vw - 24px));
     height: min(220px, 32vh);
     min-height: 0;
