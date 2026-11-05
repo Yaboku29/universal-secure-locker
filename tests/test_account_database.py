@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from backend.database import AccountDatabase
+from backend.security.file_crypto import FileEncryption
 
 
 class AccountDatabaseTests(unittest.TestCase):
@@ -79,6 +80,92 @@ class AccountDatabaseTests(unittest.TestCase):
             self.database.read_file(self.owner["id"], file_id)["content"],
             b"private",
         )
+
+    def test_documents_are_encrypted_at_rest_and_shared_reads_are_decrypted(self) -> None:
+        key = bytes(range(FileEncryption.key_size))
+        self.database.activate_file_encryption(key)
+        document_content = b"%PDF-1.7\nconfidential"
+        document_id = self.database.create_resource(
+            self.owner["id"],
+            "confidential.pdf",
+            "file",
+            content=document_content,
+            content_type="application/pdf",
+        )
+        image_content = b"\x89PNG\r\n\x1a\noriginal-image"
+        image_id = self.database.create_resource(
+            self.owner["id"],
+            "photo.png",
+            "file",
+            content=image_content,
+            content_type="image/png",
+        )
+        account_directory = (
+            self.database.users_dir
+            / f"account-{self.owner['id']}-{self.owner['username']}"
+        )
+        encrypted_document = (
+            account_directory / "items" / f"{document_id}.blob"
+        ).read_bytes()
+        stored_image = (
+            account_directory / "items" / f"{image_id}.blob"
+        ).read_bytes()
+
+        self.assertTrue(FileEncryption.is_encrypted(encrypted_document))
+        self.assertNotIn(document_content, encrypted_document)
+        self.assertEqual(stored_image, image_content)
+        self.assertEqual(
+            self.database.read_file(self.owner["id"], document_id)["content"],
+            document_content,
+        )
+
+        self.database.set_resource_permissions(
+            self.owner["id"], document_id, self.reader["id"], False, True, False
+        )
+        self.assertEqual(
+            self.database.read_file(self.reader["id"], document_id)["content"],
+            document_content,
+        )
+        replacement_content = b"%PDF-1.7\nupdated document"
+        self.database.update_resource(
+            self.owner["id"],
+            document_id,
+            "confidential.pdf",
+            replacement_content,
+            "application/pdf",
+        )
+        encrypted_document = (
+            account_directory / "items" / f"{document_id}.blob"
+        ).read_bytes()
+        self.assertTrue(FileEncryption.is_encrypted(encrypted_document))
+        self.assertEqual(
+            self.database.read_file(self.owner["id"], document_id)["content"],
+            replacement_content,
+        )
+
+    def test_legacy_plaintext_documents_are_encrypted_when_storage_unlocks(self) -> None:
+        document_content = b"legacy plaintext"
+        document_id = self.database.create_resource(
+            self.owner["id"], "legacy.txt", "file", content=document_content
+        )
+        account_directory = (
+            self.database.users_dir
+            / f"account-{self.owner['id']}-{self.owner['username']}"
+        )
+        path = account_directory / "items" / f"{document_id}.blob"
+        key = bytes(range(FileEncryption.key_size))
+
+        self.database.activate_file_encryption(key)
+
+        stored_content = path.read_bytes()
+        self.assertTrue(FileEncryption.is_encrypted(stored_content))
+        self.assertEqual(
+            self.database.read_file(self.owner["id"], document_id)["content"],
+            document_content,
+        )
+        self.database.deactivate_file_encryption()
+        with self.assertRaises(PermissionError):
+            self.database.read_file(self.owner["id"], document_id)
 
     def test_existing_database_blobs_are_migrated_to_account_storage(self) -> None:
         file_id = self.database.create_resource(

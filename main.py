@@ -8,6 +8,7 @@ from backend.database import AccountDatabase
 from backend.security.biometric_auth import BiometricAuth
 from backend.security.crypto_engine import SuperEncryption
 from backend.security.dongle_auth import DongleAuth
+from backend.security.file_key_store import WindowsFileKeyStore
 
 
 logger = logging.getLogger("universal_secure_locker")
@@ -18,6 +19,10 @@ class LockerApi:
         self.dongle = DongleAuth(storage_dir)
         self.biometric = BiometricAuth(storage_dir)
         self.accounts = AccountDatabase(storage_dir)
+        self.file_key_store = WindowsFileKeyStore(
+            storage_dir / "file-encryption-key.dpapi"
+        )
+        self._prepare_file_storage()
         self._usb_verified = False
         self._face_verified = False
         self._hardware_verified = False
@@ -52,6 +57,7 @@ class LockerApi:
         return self.biometric.finish_enrollment()
 
     def verify_usb(self) -> bool:
+        self._lock_file_storage()
         self._usb_verified = False
         self._face_verified = False
         self._hardware_verified = False
@@ -61,6 +67,7 @@ class LockerApi:
         return self._usb_verified
 
     def verify_face(self) -> dict[str, float | bool | str]:
+        self._lock_file_storage()
         self._face_verified = False
         self._hardware_verified = False
         self._authenticated = False
@@ -86,6 +93,24 @@ class LockerApi:
             raise PermissionError("Login ke akun terlebih dahulu.")
         return self._current_account_id
 
+    def _unlock_file_storage(self) -> None:
+        key = self.file_key_store.load_or_create()
+        try:
+            self.accounts.activate_file_encryption(key)
+        except Exception:
+            self.accounts.deactivate_file_encryption()
+            raise
+
+    def _prepare_file_storage(self) -> None:
+        key = self.file_key_store.load_or_create()
+        try:
+            self.accounts.activate_file_encryption(key)
+        finally:
+            self.accounts.deactivate_file_encryption()
+
+    def _lock_file_storage(self) -> None:
+        self.accounts.deactivate_file_encryption()
+
     def get_account_state(self) -> dict[str, bool]:
         self._require_hardware_authentication()
         return {"has_accounts": self.accounts.has_accounts()}
@@ -95,6 +120,7 @@ class LockerApi:
     ) -> dict[str, int | str | bool]:
         self._require_hardware_authentication()
         account = self.accounts.create_account(username, password)
+        self._unlock_file_storage()
         self._current_account_id = int(account["id"])
         self._authenticated = True
         logger.info("Akun %s dibuat; admin=%s.", account["username"], account["is_admin"])
@@ -105,6 +131,7 @@ class LockerApi:
     ) -> dict[str, int | str | bool]:
         self._require_hardware_authentication()
         account = self.accounts.authenticate(username, password)
+        self._unlock_file_storage()
         self._current_account_id = int(account["id"])
         self._authenticated = True
         logger.info("Akun %s berhasil login.", account["username"])
@@ -239,6 +266,7 @@ class LockerApi:
         )
 
     def logout(self) -> None:
+        self._lock_file_storage()
         self._authenticated = False
         self._current_account_id = None
         self._hardware_verified = False

@@ -21,8 +21,9 @@ Closure tampil sebagai pemandu dengan bubble dialog yang menyambut pengguna dan 
 - Admin dapat mengatur izin pada item yang dikelola, tetapi status admin sendiri **tidak** memberikan akses baca ke seluruh isi vault. Pemilik file/folder juga dapat membagikan item miliknya.
 - Hak akses ditetapkan pada tiap item dan tidak diwariskan. Untuk membuka file di dalam folder bersama, penerima perlu hak **lihat** pada seluruh folder induk dan hak **lihat** pada file tersebut. Untuk membuat item di folder bersama, penerima perlu hak **lihat** dan **buat** di folder itu.
 - Hak **ubah** otomatis menyertakan hak **lihat**. Izin dapat dicabut dengan menghilangkan semua centang lalu menyimpan.
-- Setiap akun memiliki folder lokal `storage/users/account-{id}-{username}/`. Isi file disimpan di dalam folder akun tersebut, termasuk dalam subfolder lokal untuk item folder; SQLite hanya menyimpan metadata, hash password, dan izin. Unggahan dibatasi 10 MiB.
-- Folder dan file yang tampil di vault tetap memakai nama yang dipilih, sementara direktori fisiknya memakai ID resource untuk mencegah benturan nama/path. Data file dan database **belum dienkripsi**. Pembatasan akun ini hanya berlaku di dalam aplikasi; pengguna yang memiliki akses OS dapat membaca folder akun maupun database secara langsung.
+- Setiap akun memiliki folder lokal `storage/users/account-{id}-{username}/`. SQLite menyimpan metadata, hash password, dan izin; isi file berada pada filesystem lokal. Unggahan dibatasi 10 MiB.
+- Dokumen umum (termasuk PDF, teks, dan video) dienkripsi saat disimpan dengan AES-256-GCM. Saat sesi akun terkunci, file di folder lokal berisi ciphertext; file asli hanya didekripsi dalam memori ketika pengguna membuka atau mengunduhnya lewat aplikasi. Gambar dengan ekstensi umum seperti PNG/JPG/GIF/WEBP sengaja tetap utuh/tidak dienkripsi.
+- Folder dan file yang tampil di vault tetap memakai nama yang dipilih, sementara direktori fisiknya memakai ID resource untuk mencegah benturan nama/path. Kunci AES acak dilindungi Windows DPAPI untuk profil pengguna Windows ini, dan dibuka setelah login akun. Enkripsi ini melindungi file dari pembacaan langsung biasa melalui File Explorer, bukan dari malware/proses yang berjalan sebagai pengguna Windows yang sama atau akses administrator.
 - Dashboard menyediakan super enkripsi teks berurutan Caesar → Vigenere → XOR → RSA-OAEP. Ciphertext berupa heksadesimal agar hanya memakai karakter `0–9` dan `a–f`; penyimpanan ke `items/pesan_terenkripsi_{angka}.txt` tetap dilakukan setelah tombol simpan ditekan.
 - RSA memakai key pair standar 3072-bit yang dapat dibuat dari aplikasi atau diimpor sebagai PEM. Public key dipakai untuk enkripsi, private key pasangannya untuk dekripsi. Kunci Vigenere/XOR yang sama (minimal 12 huruf/angka) dan Caesar shift (0–25) harus digunakan kembali untuk dekripsi.
 
@@ -48,6 +49,7 @@ Log menggunakan format waktu, level, dan nama logger, misalnya `INFO universal_s
 | USB | **Windows API melalui `ctypes`** | Mencari drive removable dan memeriksa token pada flashdisk tanpa dependensi tambahan. |
 | Password akun | **Argon2id (`argon2-cffi`)** | Menyimpan hash password akun dengan salt dan parameter Argon2id. |
 | Super enkripsi pesan | **`cryptography`** | RSA-OAEP SHA-256 3072-bit; Caesar, Vigenere, dan XOR untuk demonstrasi berlapis. |
+| Enkripsi file dokumen | **AES-256-GCM (`cryptography`)** | Mengenkripsi dokumen pada filesystem; kunci acak dilindungi DPAPI Windows. Gambar dikecualikan. |
 | Akun, izin, dan metadata | **SQLite melalui `sqlite3` bawaan Python** | Menyimpan akun, hash, metadata resource, dan izin per item di `storage/accounts.db`. |
 | Konten file | **Filesystem lokal** | Menyimpan file di `storage/users/account-{id}-{username}/`; folder ini diabaikan Git. |
 | Faktor perangkat | **JSON dan model OpenCV lokal** | Menyimpan hash token USB dan model wajah pada folder `storage/`. |
@@ -63,6 +65,16 @@ PyWebView dipilih daripada Electron atau API FastAPI/Flask agar tahap awal tetap
 5. Key pair yang dibuat tidak disimpan aplikasi. Simpan private key di tempat aman dan jangan membagikannya. Jika hilang, ciphertext tidak dapat didekripsi.
 
 Jangan memilih bilangan prima RSA 20–30 digit: ukuran tersebut terlalu kecil untuk keamanan RSA modern. Pembuatan key pair 3072-bit oleh pustaka kriptografi lebih tepat daripada memasukkan bilangan prima sendiri. Lapisan Caesar/Vigenere/XOR adalah algoritma klasik untuk demonstrasi dan tidak menambah keamanan RSA yang berarti; fitur ini tidak memberikan autentikasi/integritas ciphertext dan tidak menggantikan enkripsi file dengan skema terautentikasi seperti AES-GCM. Jangan gunakan sebagai satu-satunya perlindungan data penting.
+
+### Enkripsi File Dokumen
+
+- Modul `backend/security/file_crypto.py` menyediakan `FileEncryption.encrypt_file(path, key)` dan `FileEncryption.decrypt_file(path, key)` untuk pemakaian file langsung, serta fungsi bytes yang digunakan oleh storage aplikasi. Helper file langsung juga melewati gambar yang dikenali.
+- Dokumen disimpan dengan format biner ber-header USL dan AES-256-GCM (nonce acak 12 byte + tag autentikasi). Isi ciphertext tidak bisa dibuka sebagai dokumen normal dari File Explorer. Aplikasi mendekripsinya di memori hanya saat permintaan baca; hasil unduhan dari aplikasi adalah file asli.
+- File gambar umum (PNG, JPG/JPEG, GIF, BMP, TIFF, WEBP, HEIC/HEIF, atau MIME `image/*`) sengaja disimpan tanpa perubahan. File video dan jenis file lain dienkripsi.
+- Kunci AES acak disimpan dalam keadaan terproteksi DPAPI pada `storage/file-encryption-key.dpapi`. Kunci dibuka setelah login akun, dan referensinya dilepas saat logout. Backup file ini bersama database dan folder `storage/users/`; kunci DPAPI terikat pada profil Windows/machine tempat kunci dibuat sehingga pemulihan ke profil atau komputer lain tidak otomatis tersedia.
+- Saat aplikasi dimulai, dokumen lama yang masih plaintext dienkripsi otomatis; file gambar tetap dibiarkan seperti semula. Kunci segera dikunci kembali dan hanya dibuka setelah login. Jangan menghapus atau mengganti file kunci DPAPI, karena file terenkripsi tidak dapat dipulihkan tanpanya.
+- File asli didekripsi hanya untuk preview atau unduhan melalui aplikasi. Hasil unduhan yang disimpan ke lokasi pilihan pengguna adalah salinan plaintext biasa; penyimpanan vault di `storage/users/` tetap ciphertext.
+- Batas keamanan: DPAPI melindungi kunci terhadap akses file biasa dari pengguna Windows lain, tetapi bukan proses jahat yang berjalan sebagai pengguna Windows yang sama atau administrator. Metadata SQLite dan gambar yang dikecualikan tetap tidak dienkripsi. Fitur ini tidak membuat file terbaca di luar aplikasi hanya karena pengguna berhasil login; pembacaan di aplikasi mendekripsi saat diminta.
 
 ## Kebutuhan
 
@@ -147,10 +159,10 @@ Rincian latar belakang dan rancangan keseluruhan terdapat di [dokumen perancanga
 - Pendaftaran USB tidak menjalankan proses format. Aplikasi hanya membuat file token baru di folder utama USB yang dipilih. File yang sudah ada tidak ditimpa; jika file token dengan nama yang sama sudah ada, pendaftaran dibatalkan.
 - LBPH merupakan pengenal wajah sederhana, bukan sistem biometrik modern yang tahan spoofing. Prototipe ini tidak memiliki deteksi keaktifan (*liveness detection*), sehingga foto/video dapat berisiko mengecoh verifikasi. Nilai ambang pengenalan perlu diuji pada kondisi kamera yang beragam.
 - Model wajah dan konfigurasi disimpan lokal tanpa enkripsi pada tahap ini. Amankan komputer dan jangan membagikan folder `storage/`.
-- Hash password tidak dapat mengembalikan password asli, tetapi metadata database dan konten file tetap lokal tanpa enkripsi. Amankan komputer dan backup folder `storage/` dengan hati-hati.
+- Hash password tidak dapat mengembalikan password asli. Dokumen umum dienkripsi AES-GCM saat tersimpan; metadata database dan gambar yang dikecualikan belum dienkripsi. Amankan komputer dan backup folder `storage/` dengan hati-hati.
 - Izin akun berlaku saat mengakses aplikasi. Pengguna yang memiliki akses OS langsung ke `storage/accounts.db` dapat membaca atau mengubah datanya; enkripsi at-rest dan perlindungan integritas database belum dibuat.
 - Kamera hanya digunakan melalui aplikasi lokal; frame tidak dikirim ke layanan internet.
-- Dashboard menyimpan konten file pada `storage/users/` dan metadata/izin pada database SQLite. Saat aplikasi diperbarui, BLOB file lama yang masih berada di database akan dipindahkan otomatis ke folder akun; backup database dan `storage/users/` bersama-sama. Steganografi dan audit ledger belum dibuat; database serta file belum dienkripsi.
+- Dashboard menyimpan konten file pada `storage/users/` dan metadata/izin pada database SQLite. Saat aplikasi diperbarui, BLOB file lama yang masih berada di database akan dipindahkan otomatis ke folder akun; startup mengenkripsi dokumen lama dan backup database, `storage/users/`, serta `storage/file-encryption-key.dpapi` bersama-sama. Steganografi dan audit ledger belum dibuat.
 - Super enkripsi teks sudah tersedia dengan urutan Caesar → Vigenere → XOR → RSA-OAEP. Implementasi ini untuk pembelajaran, bukan pengganti enkripsi file/database atau enkripsi terautentikasi.
 - Gunakan pustaka kriptografi teruji untuk fitur produksi. AES-GCM untuk enkripsi terautentikasi dan Argon2id untuk hash password; jangan mengimplementasikan algoritma kriptografi sendiri.
 
@@ -162,7 +174,8 @@ Rincian latar belakang dan rancangan keseluruhan terdapat di [dokumen perancanga
 - **Kembali ke biometrik:** dari login tahap kedua, tombol **Kembali ke verifikasi biometrik** mengakhiri tahap autentikasi perangkat saat ini dan membawa pengguna ke halaman verifikasi USB/wajah. Kedua faktor harus diverifikasi ulang sebelum login akun.
 - **Dashboard:** Closure menyambut pengguna melalui bubble dialog dan menjelaskan cakupan akses akun; dashboard mendukung folder/file dengan izin per item. File lokal terletak di `storage/users/`, bukan sebagai BLOB SQLite.
 - **Penyimpanan lokal akun:** pembuatan akun membuat folder `storage/users/account-{id}-{username}/`; konten file berada pada filesystem lokal dan SQLite hanya menyimpan metadata/izin. BLOB lama dimigrasikan saat database dibuka.
+- **Enkripsi dokumen:** file non-gambar dienkripsi dengan AES-256-GCM saat disimpan dan hanya didekripsi di memori saat dibuka/diunduh lewat aplikasi; kuncinya dilindungi Windows DPAPI. Gambar tetap tidak dienkripsi.
 - **Super enkripsi teks:** implementasi Caesar → Vigenere → XOR → RSA-OAEP SHA-256, keluaran hex alfanumerik, pengelolaan key pair RSA 3072-bit, dan opsi menyimpan ciphertext sebagai `pesan_terenkripsi_{angka}.txt`.
 - **Pesan terminal dan bubble:** status serta pesan panduan/error tetap dikirim ke terminal sebagai log `INFO` dan juga ditampilkan pada bubble Closure; perubahan UI tidak menghilangkan log terminal.
 - **Login tahap kedua:** setelah verifikasi USB dan wajah, pengguna masuk atau mendaftar menggunakan username/password dengan hash Argon2id. Akun pertama menjadi admin; akun selanjutnya dapat mendaftar mandiri.
-- **Multiakun dan izin:** dashboard menampilkan folder/file yang dapat diakses akun aktif, dengan izin buat/lihat/ubah yang dikelola terpisah per item. File saat ini dibatasi 10 MiB dan disimpan di filesystem lokal tanpa enkripsi.
+- **Multiakun dan izin:** dashboard menampilkan folder/file yang dapat diakses akun aktif, dengan izin buat/lihat/ubah yang dikelola terpisah per item. File saat ini dibatasi 10 MiB; dokumen dienkripsi lokal, gambar dikecualikan.

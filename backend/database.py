@@ -8,6 +8,8 @@ from typing import Generator
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
+from backend.security.file_crypto import FileEncryption
+
 
 class AccountDatabase:
     max_file_size = 10 * 1024 * 1024
@@ -22,6 +24,7 @@ class AccountDatabase:
         self.storage_dir = storage_dir
         self.database_path = storage_dir / "accounts.db"
         self.users_dir = storage_dir / "users"
+        self._file_encryption_key: bytes | None = None
         self.password_hasher = PasswordHasher(
             time_cost=3,
             memory_cost=65536,
@@ -192,6 +195,52 @@ class AccountDatabase:
                     """,
                     (str(relative_path), resource["id"]),
                 )
+
+    def activate_file_encryption(self, key: bytes) -> None:
+        FileEncryption._validate_key(key)
+        self._file_encryption_key = key
+        with self._connect() as connection:
+            resources = connection.execute(
+                """
+                SELECT id, owner_id, name, content_type, storage_path
+                FROM resources WHERE kind = 'file'
+                """
+            ).fetchall()
+            owners = {
+                int(row["id"]): self._account_directory(
+                    int(row["id"]), str(row["username"])
+                )
+                for row in connection.execute(
+                    "SELECT id, username FROM accounts"
+                ).fetchall()
+            }
+
+        for resource in resources:
+            owner_directory = owners.get(int(resource["owner_id"]))
+            if owner_directory is None or not resource["storage_path"]:
+                raise RuntimeError("Lokasi file akun tidak ditemukan.")
+            path = self._resolve_storage_path(
+                owner_directory, Path(str(resource["storage_path"]))
+            )
+            try:
+                stored_content = path.read_bytes()
+            except OSError as error:
+                raise RuntimeError("Isi file lokal tidak dapat dibaca.") from error
+
+            should_encrypt = FileEncryption.should_encrypt(
+                str(resource["name"]), resource["content_type"]
+            )
+            is_encrypted = FileEncryption.is_encrypted(stored_content)
+            if should_encrypt and not is_encrypted:
+                stored_content = FileEncryption.encrypt_bytes(stored_content, key)
+            elif not should_encrypt and is_encrypted:
+                stored_content = FileEncryption.decrypt_bytes(stored_content, key)
+            else:
+                continue
+            FileEncryption.write_bytes_atomically(path, stored_content)
+
+    def deactivate_file_encryption(self) -> None:
+        self._file_encryption_key = None
 
     @staticmethod
     def _validate_account_id(account_id: int) -> None:
@@ -541,7 +590,15 @@ class AccountDatabase:
             path.mkdir(parents=True, exist_ok=True)
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(content or b"")
+            stored_content = content or b""
+            if (
+                self._file_encryption_key is not None
+                and FileEncryption.should_encrypt(name, content_type)
+            ):
+                stored_content = FileEncryption.encrypt_bytes(
+                    stored_content, self._file_encryption_key
+                )
+            FileEncryption.write_bytes_atomically(path, stored_content)
         connection.execute(
             """
             INSERT INTO resources
@@ -614,10 +671,10 @@ class AccountDatabase:
                 raise RuntimeError("Lokasi file tidak ditemukan.")
             account_directory = self._account_directory(
                 int(row["owner_id"]), str(owner["username"])
-            ).resolve()
-            path = (account_directory / str(row["storage_path"])).resolve()
-            if not path.is_relative_to(account_directory):
-                raise RuntimeError("Lokasi file berada di luar folder akun.")
+            )
+            path = self._resolve_storage_path(
+                account_directory, Path(str(row["storage_path"]))
+            )
             name = str(row["name"])
             content_type = str(
                 row["content_type"] or "application/octet-stream"
@@ -626,6 +683,19 @@ class AccountDatabase:
             content = path.read_bytes()
         except OSError as error:
             raise RuntimeError("Isi file lokal tidak dapat dibaca.") from error
+        if FileEncryption.is_encrypted(content):
+            if self._file_encryption_key is None:
+                raise PermissionError(
+                    "Login ke akun terlebih dahulu untuk mendekripsi file."
+                )
+            content = FileEncryption.decrypt_bytes(
+                content, self._file_encryption_key
+            )
+        elif (
+            self._file_encryption_key is not None
+            and FileEncryption.should_encrypt(name, content_type)
+        ):
+            raise RuntimeError("File dokumen belum terenkripsi pada penyimpanan.")
         return {
             "name": name,
             "content_type": content_type,
@@ -666,11 +736,24 @@ class AccountDatabase:
                     raise RuntimeError("Lokasi file tidak ditemukan.")
                 account_directory = self._account_directory(
                     int(row["owner_id"]), str(owner["username"])
-                ).resolve()
-                path = (account_directory / str(row["storage_path"])).resolve()
-                if not path.is_relative_to(account_directory):
-                    raise RuntimeError("Lokasi file berada di luar folder akun.")
-                path.write_bytes(content)
+                )
+                path = self._resolve_storage_path(
+                    account_directory, Path(str(row["storage_path"]))
+                )
+                final_content_type = str(
+                    content_type
+                    if content_type is not None
+                    else row["content_type"] or "application/octet-stream"
+                )
+                stored_content = content
+                if (
+                    self._file_encryption_key is not None
+                    and FileEncryption.should_encrypt(name, final_content_type)
+                ):
+                    stored_content = FileEncryption.encrypt_bytes(
+                        content, self._file_encryption_key
+                    )
+                FileEncryption.write_bytes_atomically(path, stored_content)
             connection.execute(
                 """
                 UPDATE resources
