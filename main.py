@@ -1,5 +1,6 @@
 import base64
 import logging
+import tempfile
 from pathlib import Path
 
 import webview
@@ -7,6 +8,7 @@ import webview
 from backend.database import AccountDatabase
 from backend.security.biometric_auth import BiometricAuth
 from backend.security.crypto_engine import SuperEncryption
+from backend.security.database_crypto import DatabaseFileEncryption
 from backend.security.dongle_auth import DongleAuth
 from backend.security.file_key_store import WindowsFileKeyStore
 
@@ -18,16 +20,30 @@ class LockerApi:
     def __init__(self, storage_dir: Path) -> None:
         self.dongle = DongleAuth(storage_dir)
         self.biometric = BiometricAuth(storage_dir)
-        self.accounts = AccountDatabase(storage_dir)
         self.file_key_store = WindowsFileKeyStore(
             storage_dir / "file-encryption-key.dpapi"
         )
-        self._prepare_file_storage()
+        self._storage_dir = storage_dir
+        self._database_path = storage_dir / "accounts.db"
+        self._database_key = self.file_key_store.load_or_create()
+        self._accounts: AccountDatabase | None = None
+        self._database_workspace: tempfile.TemporaryDirectory[str] | None = None
+        DatabaseFileEncryption.seal(self._database_path, self._database_key)
         self._usb_verified = False
         self._face_verified = False
         self._hardware_verified = False
         self._authenticated = False
         self._current_account_id: int | None = None
+
+    @property
+    def accounts(self) -> AccountDatabase:
+        if self._accounts is None:
+            raise PermissionError("Verifikasi USB dan wajah terlebih dahulu.")
+        return self._accounts
+
+    @accounts.setter
+    def accounts(self, database: AccountDatabase | None) -> None:
+        self._accounts = database
 
     def get_status(self) -> dict[str, bool]:
         return {
@@ -57,7 +73,7 @@ class LockerApi:
         return self.biometric.finish_enrollment()
 
     def verify_usb(self) -> bool:
-        self._lock_file_storage()
+        self._lock_database()
         self._usb_verified = False
         self._face_verified = False
         self._hardware_verified = False
@@ -67,7 +83,7 @@ class LockerApi:
         return self._usb_verified
 
     def verify_face(self) -> dict[str, float | bool | str]:
-        self._lock_file_storage()
+        self._lock_database()
         self._face_verified = False
         self._hardware_verified = False
         self._authenticated = False
@@ -79,6 +95,7 @@ class LockerApi:
     def complete_hardware_authentication(self) -> bool:
         if not (self._usb_verified and self._face_verified):
             raise PermissionError("USB dan wajah harus diverifikasi sebelum login akun.")
+        self._open_database()
         self._hardware_verified = True
         self.biometric.stop_camera()
         return True
@@ -94,22 +111,61 @@ class LockerApi:
         return self._current_account_id
 
     def _unlock_file_storage(self) -> None:
-        key = self.file_key_store.load_or_create()
+        key = self._database_key
         try:
             self.accounts.activate_file_encryption(key)
         except Exception:
             self.accounts.deactivate_file_encryption()
             raise
 
+    def _open_database(self) -> None:
+        workspace = tempfile.TemporaryDirectory(prefix="usl-database-")
+        working_database_path = Path(workspace.name) / "accounts.db"
+        try:
+            DatabaseFileEncryption.unlock_to(
+                self._database_path,
+                working_database_path,
+                self._database_key,
+            )
+            self.accounts = AccountDatabase(
+                self._storage_dir, database_path=working_database_path
+            )
+            self._database_workspace = workspace
+            self.accounts.activate_sensitive_data_encryption(self._database_key)
+            try:
+                self.accounts.activate_file_encryption(self._database_key)
+            finally:
+                self.accounts.deactivate_file_encryption()
+        except Exception:
+            self._accounts = None
+            workspace.cleanup()
+            raise
+
     def _prepare_file_storage(self) -> None:
-        key = self.file_key_store.load_or_create()
+        key = self._database_key
         try:
             self.accounts.activate_file_encryption(key)
         finally:
             self.accounts.deactivate_file_encryption()
 
     def _lock_file_storage(self) -> None:
-        self.accounts.deactivate_file_encryption()
+        if self._accounts is not None:
+            self.accounts.deactivate_file_encryption()
+            self.accounts.deactivate_sensitive_data_encryption()
+
+    def _lock_database(self) -> None:
+        if self._accounts is None:
+            return
+        self._lock_file_storage()
+        DatabaseFileEncryption.seal_to(
+            self._accounts.database_path,
+            self._database_path,
+            self._database_key,
+        )
+        self._accounts = None
+        if self._database_workspace is not None:
+            self._database_workspace.cleanup()
+            self._database_workspace = None
 
     def get_account_state(self) -> dict[str, bool]:
         self._require_hardware_authentication()
@@ -262,6 +318,25 @@ class LockerApi:
             self._require_account_authentication(), message
         )
 
+    def save_secret_note(self, content: str) -> str:
+        return self.accounts.save_secret_note(
+            self._require_account_authentication(), content
+        )
+
+    def get_secret_notes(self) -> list[dict[str, str]]:
+        return self.accounts.get_secret_notes(
+            self._require_account_authentication()
+        )
+
+    def record_transaction(self, action: str, details: str) -> dict[str, int | str]:
+        return self.accounts.record_transaction(
+            self._require_account_authentication(), action, details
+        )
+
+    def verify_transaction_chain(self) -> bool:
+        self._require_account_authentication()
+        return self.accounts.verify_transaction_chain()
+
     def generate_rsa_key_pair(self) -> dict[str, str]:
         self._require_account_authentication()
         return SuperEncryption.generate_rsa_key_pair()
@@ -300,7 +375,7 @@ class LockerApi:
         )
 
     def logout(self) -> None:
-        self._lock_file_storage()
+        self._lock_database()
         self._authenticated = False
         self._current_account_id = None
         self._hardware_verified = False

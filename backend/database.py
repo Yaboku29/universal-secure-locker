@@ -1,7 +1,10 @@
+import hashlib
+import json
 import re
 import sqlite3
 import uuid
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
 
@@ -20,11 +23,14 @@ class AccountDatabase:
         "update": "can_update",
     }
 
-    def __init__(self, storage_dir: Path) -> None:
+    def __init__(
+        self, storage_dir: Path, database_path: Path | None = None
+    ) -> None:
         self.storage_dir = storage_dir
-        self.database_path = storage_dir / "accounts.db"
+        self.database_path = database_path or storage_dir / "accounts.db"
         self.users_dir = storage_dir / "users"
         self._file_encryption_key: bytes | None = None
+        self._sensitive_data_key: bytes | None = None
         self.password_hasher = PasswordHasher(
             time_cost=3,
             memory_cost=65536,
@@ -80,6 +86,21 @@ class AccountDatabase:
                     can_read INTEGER NOT NULL DEFAULT 0,
                     can_update INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY (resource_id, account_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS secret_notes (
+                    id TEXT PRIMARY KEY,
+                    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+                    encrypted_content BLOB NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS mini_chain (
+                    block_index INTEGER PRIMARY KEY,
+                    previous_hash TEXT NOT NULL,
+                    block_hash TEXT NOT NULL UNIQUE,
+                    encrypted_payload BLOB NOT NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS resources_parent_idx
@@ -241,6 +262,157 @@ class AccountDatabase:
 
     def deactivate_file_encryption(self) -> None:
         self._file_encryption_key = None
+
+    def activate_sensitive_data_encryption(self, key: bytes) -> None:
+        FileEncryption._validate_key(key)
+        self._sensitive_data_key = key
+
+    def deactivate_sensitive_data_encryption(self) -> None:
+        self._sensitive_data_key = None
+
+    def save_secret_note(self, account_id: int, content: str) -> str:
+        self._validate_account_id(account_id)
+        if self._sensitive_data_key is None:
+            raise PermissionError("Buka database setelah verifikasi USB dan wajah.")
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("Catatan rahasia tidak boleh kosong.")
+        encoded_content = content.encode("utf-8")
+        if len(encoded_content) > self.max_file_size:
+            raise ValueError("Ukuran catatan maksimal 10 MiB.")
+        note_id = str(uuid.uuid4())
+        encrypted_content = FileEncryption.encrypt_bytes(
+            encoded_content, self._sensitive_data_key
+        )
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO secret_notes (id, account_id, encrypted_content)
+                VALUES (?, ?, ?)
+                """,
+                (note_id, account_id, encrypted_content),
+            )
+        return note_id
+
+    def get_secret_notes(self, account_id: int) -> list[dict[str, str]]:
+        self._validate_account_id(account_id)
+        if self._sensitive_data_key is None:
+            raise PermissionError("Buka database setelah verifikasi USB dan wajah.")
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, encrypted_content, created_at, updated_at
+                FROM secret_notes
+                WHERE account_id = ?
+                ORDER BY created_at, id
+                """,
+                (account_id,),
+            ).fetchall()
+        return [
+            {
+                "id": str(row["id"]),
+                "content": FileEncryption.decrypt_bytes(
+                    bytes(row["encrypted_content"]), self._sensitive_data_key
+                ).decode("utf-8"),
+                "created_at": str(row["created_at"]),
+                "updated_at": str(row["updated_at"]),
+            }
+            for row in rows
+        ]
+
+    def record_transaction(
+        self, account_id: int, action: str, details: str
+    ) -> dict[str, int | str]:
+        self._validate_account_id(account_id)
+        if self._sensitive_data_key is None:
+            raise PermissionError("Buka database setelah verifikasi USB dan wajah.")
+        if not isinstance(action, str) or not action.strip() or len(action) > 100:
+            raise ValueError("Jenis transaksi tidak valid.")
+        if not isinstance(details, str):
+            raise ValueError("Detail transaksi tidak valid atau terlalu besar.")
+        if len(details.encode("utf-8")) > self.max_file_size:
+            raise ValueError("Detail transaksi tidak valid atau terlalu besar.")
+
+        payload = {
+            "account_id": account_id,
+            "action": action.strip(),
+            "details": details,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        payload_bytes = json.dumps(
+            payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        encrypted_payload = FileEncryption.encrypt_bytes(
+            payload_bytes, self._sensitive_data_key
+        )
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            account = connection.execute(
+                "SELECT 1 FROM accounts WHERE id = ?", (account_id,)
+            ).fetchone()
+            if account is None:
+                raise ValueError("Akun transaksi tidak ditemukan.")
+            previous = connection.execute(
+                """
+                SELECT block_index, block_hash FROM mini_chain
+                ORDER BY block_index DESC LIMIT 1
+                """
+            ).fetchone()
+            block_index = 0 if previous is None else int(previous["block_index"]) + 1
+            previous_hash = "0" * 64 if previous is None else str(previous["block_hash"])
+            block_hash = hashlib.sha256(
+                bytes.fromhex(previous_hash) + payload_bytes
+            ).hexdigest()
+            connection.execute(
+                """
+                INSERT INTO mini_chain
+                    (block_index, previous_hash, block_hash, encrypted_payload)
+                VALUES (?, ?, ?, ?)
+                """,
+                (block_index, previous_hash, block_hash, encrypted_payload),
+            )
+        return {
+            "block_index": block_index,
+            "previous_hash": previous_hash,
+            "block_hash": block_hash,
+        }
+
+    def verify_transaction_chain(self) -> bool:
+        if self._sensitive_data_key is None:
+            raise PermissionError("Buka database setelah verifikasi USB dan wajah.")
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT block_index, previous_hash, block_hash, encrypted_payload
+                FROM mini_chain ORDER BY block_index
+                """
+            ).fetchall()
+        previous_hash = "0" * 64
+        for expected_index, row in enumerate(rows):
+            if (
+                int(row["block_index"]) != expected_index
+                or str(row["previous_hash"]) != previous_hash
+            ):
+                return False
+            try:
+                payload_bytes = FileEncryption.decrypt_bytes(
+                    bytes(row["encrypted_payload"]), self._sensitive_data_key
+                )
+                payload = json.loads(payload_bytes.decode("utf-8"))
+                expected_hash = hashlib.sha256(
+                    bytes.fromhex(previous_hash) + payload_bytes
+                ).hexdigest()
+            except (
+                UnicodeDecodeError,
+                json.JSONDecodeError,
+                ValueError,
+            ):
+                return False
+            if not isinstance(payload, dict):
+                return False
+            if str(row["block_hash"]) != expected_hash:
+                return False
+            previous_hash = expected_hash
+        return True
 
     @staticmethod
     def _validate_account_id(account_id: int) -> None:

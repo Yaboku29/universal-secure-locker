@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from backend.database import AccountDatabase
+from backend.security.database_crypto import DatabaseFileEncryption
 from backend.security.file_crypto import FileEncryption
 from backend.security.file_key_store import WindowsFileKeyStore
 from main import LockerApi, webview
@@ -27,6 +28,11 @@ class AccountApiTests(unittest.TestCase):
         self.api.file_key_store = WindowsFileKeyStore(
             Path(self.temporary_directory.name) / "file-encryption-key.dpapi"
         )
+        self.api._storage_dir = Path(self.temporary_directory.name)
+        self.api._database_path = self.api._storage_dir / "accounts.db"
+        self.api._database_key = self.api.file_key_store.load_or_create()
+        self.api._database_workspace = None
+        self.api._accounts = self.database
         self.api.biometric = BiometricStub()
         self.api._usb_verified = False
         self.api._face_verified = False
@@ -34,8 +40,12 @@ class AccountApiTests(unittest.TestCase):
         self.api._authenticated = False
         self.api._current_account_id = None
         self.api._prepare_file_storage()
+        DatabaseFileEncryption.seal(
+            self.api._database_path, self.api._database_key
+        )
 
     def tearDown(self) -> None:
+        self.api.logout()
         self.temporary_directory.cleanup()
 
     def test_account_creation_requires_both_hardware_factors(self) -> None:
@@ -48,6 +58,19 @@ class AccountApiTests(unittest.TestCase):
 
         self.api._face_verified = True
         self.assertTrue(self.api.complete_hardware_authentication())
+        self.assertTrue(
+            DatabaseFileEncryption.is_encrypted(
+                self.api._database_path.read_bytes()
+            )
+        )
+        self.assertNotEqual(
+            self.api.accounts.database_path, self.api._database_path
+        )
+        self.assertTrue(
+            self.api.accounts.database_path.read_bytes().startswith(
+                b"SQLite format 3\x00"
+            )
+        )
         self.assertTrue(self.api.biometric.stopped)
         self.assertEqual(self.api.get_account_state(), {"has_accounts": False})
 
@@ -61,6 +84,11 @@ class AccountApiTests(unittest.TestCase):
         )
         self.assertTrue(self.api.is_authenticated())
         self.assertEqual(self.api.get_current_account()["username"], "first-user")
+        note_id = self.api.save_secret_note("API catatan rahasia")
+        self.assertEqual(self.api.get_secret_notes()[0]["id"], note_id)
+        transaction = self.api.record_transaction("create-note", note_id)
+        self.assertEqual(transaction["block_index"], 0)
+        self.assertTrue(self.api.verify_transaction_chain())
         document = b"%PDF-1.7\nAPI encrypted document"
         resource_id = self.api.create_resource(
             "secure.pdf",
@@ -111,6 +139,11 @@ class AccountApiTests(unittest.TestCase):
             "pesan_terenkripsi_1.txt",
         )
         self.api.logout()
+        self.assertTrue(
+            DatabaseFileEncryption.is_encrypted(
+                self.api._database_path.read_bytes()
+            )
+        )
         self.assertTrue(FileEncryption.is_encrypted(stored_path.read_bytes()))
         self.api._usb_verified = True
         self.api._face_verified = True

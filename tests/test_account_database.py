@@ -45,6 +45,48 @@ class AccountDatabaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Username atau password salah"):
             self.database.authenticate("owner", "wrong-password-123")
 
+    def test_secret_notes_and_transaction_payloads_are_encrypted(self) -> None:
+        key = bytes(range(FileEncryption.key_size))
+        self.database.activate_sensitive_data_encryption(key)
+        secret = "catatan yang tidak boleh terbaca langsung"
+
+        note_id = self.database.save_secret_note(self.owner["id"], secret)
+        with closing(sqlite3.connect(self.database.database_path)) as connection:
+            encrypted_note = connection.execute(
+                "SELECT encrypted_content FROM secret_notes WHERE id = ?",
+                (note_id,),
+            ).fetchone()[0]
+        self.assertTrue(FileEncryption.is_encrypted(bytes(encrypted_note)))
+        self.assertNotIn(secret.encode("utf-8"), bytes(encrypted_note))
+        self.assertEqual(
+            self.database.get_secret_notes(self.owner["id"])[0]["content"],
+            secret,
+        )
+        self.assertEqual(self.database.get_secret_notes(self.reader["id"]), [])
+
+        first_block = self.database.record_transaction(
+            self.owner["id"], "save-note", secret
+        )
+        second_block = self.database.record_transaction(
+            self.reader["id"], "open-vault", "session started"
+        )
+        self.assertEqual(second_block["previous_hash"], first_block["block_hash"])
+        with closing(sqlite3.connect(self.database.database_path)) as connection:
+            encrypted_payload = connection.execute(
+                "SELECT encrypted_payload FROM mini_chain WHERE block_index = 0"
+            ).fetchone()[0]
+        self.assertTrue(FileEncryption.is_encrypted(bytes(encrypted_payload)))
+        self.assertNotIn(secret.encode("utf-8"), bytes(encrypted_payload))
+        self.assertTrue(self.database.verify_transaction_chain())
+
+        with closing(sqlite3.connect(self.database.database_path)) as connection:
+            connection.execute(
+                "UPDATE mini_chain SET block_hash = ? WHERE block_index = 0",
+                ("0" * 64,),
+            )
+            connection.commit()
+        self.assertFalse(self.database.verify_transaction_chain())
+
     def test_unshared_accounts_cannot_view_or_update_resources(self) -> None:
         file_id = self.database.create_resource(
             self.owner["id"], "private.txt", "file", content=b"private", content_type="text/plain"

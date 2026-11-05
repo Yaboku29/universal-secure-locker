@@ -475,6 +475,7 @@ async function initializeDashboard() {
   const replaceInput = $("#replace-file-input");
   const shareDialog = $("#share-dialog");
   const previewDialog = $("#preview-dialog");
+  let suspendPreviewCloseCleanup = false;
   let currentParentId = null;
   let currentFolderName = "";
   let itemToReplace = null;
@@ -778,6 +779,9 @@ async function initializeDashboard() {
     }
 
     confirmButton.disabled = true;
+    suspendPreviewCloseCleanup = true;
+    previewDialog.close();
+    document.body.classList.remove("file-preview-open");
     try {
       const result = await callApi(
         "download_resource",
@@ -799,12 +803,18 @@ async function initializeDashboard() {
       showMessage($("#download-message"), error.message, "error");
       guideClosure(error.message);
     } finally {
+      if (resourceToDownload) {
+        previewDialog.showModal();
+        document.body.classList.add("file-preview-open");
+      }
+      suspendPreviewCloseCleanup = false;
       passwordInput.value = "";
       confirmButton.disabled = false;
     }
   });
 
   previewDialog.addEventListener("close", () => {
+    if (suspendPreviewCloseCleanup || previewDialog.open) return;
     resourceToDownload = null;
     $("#download-password-input").value = "";
     $("#download-password-form").hidden = true;
