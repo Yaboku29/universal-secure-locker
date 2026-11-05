@@ -53,6 +53,16 @@ class AccountApiTests(unittest.TestCase):
         )
         self.assertTrue(self.api.is_authenticated())
         self.assertEqual(self.api.get_current_account()["username"], "first-user")
+        key_pair = self.api.generate_rsa_key_pair()
+        ciphertext = self.api.encrypt_message(
+            "pesan API", 5, "LockerKey2026", key_pair["public_key"]
+        )
+        self.assertEqual(
+            self.api.decrypt_message(
+                ciphertext, 5, "LockerKey2026", key_pair["private_key"]
+            ),
+            "pesan API",
+        )
         self.assertEqual(
             self.api.save_encrypted_message("manual-ciphertext"),
             "pesan_terenkripsi_1.txt",
@@ -71,6 +81,12 @@ class AccountApiTests(unittest.TestCase):
             self.api.login_account("first-user", "first-password-123")
         with self.assertRaises(PermissionError):
             self.api.save_encrypted_message("ciphertext-after-logout")
+        with self.assertRaises(PermissionError):
+            self.api.generate_rsa_key_pair()
+        with self.assertRaises(PermissionError):
+            self.api.encrypt_message(
+                "secret", 3, "LockerKey2026", "public-key"
+            )
         self.assertFalse(self.api.is_authenticated())
 
 

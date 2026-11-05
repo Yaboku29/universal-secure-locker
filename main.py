@@ -6,6 +6,7 @@ import webview
 
 from backend.database import AccountDatabase
 from backend.security.biometric_auth import BiometricAuth
+from backend.security.crypto_engine import SuperEncryption
 from backend.security.dongle_auth import DongleAuth
 
 
@@ -198,6 +199,26 @@ class LockerApi:
     def save_encrypted_message(self, message: str) -> str:
         return self.accounts.save_encrypted_message(
             self._require_account_authentication(), message
+        )
+
+    def generate_rsa_key_pair(self) -> dict[str, str]:
+        self._require_account_authentication()
+        return SuperEncryption.generate_rsa_key_pair()
+
+    def encrypt_message(
+        self, plaintext: str, shift: int, key: str, public_key_pem: str
+    ) -> str:
+        self._require_account_authentication()
+        return SuperEncryption.encrypt_text(
+            plaintext, shift, key, public_key_pem
+        )
+
+    def decrypt_message(
+        self, ciphertext: str, shift: int, key: str, private_key_pem: str
+    ) -> str:
+        self._require_account_authentication()
+        return SuperEncryption.decrypt_text(
+            ciphertext, shift, key, private_key_pem
         )
 
     def set_resource_permissions(

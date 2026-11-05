@@ -943,6 +943,56 @@ body.camera-preview-floating .camera-frame {
   line-height: 1.6;
 }
 
+.crypto-key-settings {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 16px;
+  border: 1px solid #28364b;
+  border-radius: 12px;
+  background: rgb(12 20 33 / 55%);
+}
+
+.crypto-subheading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.crypto-subheading h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.crypto-subheading p,
+.crypto-key-warning {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.crypto-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.6fr) minmax(200px, 1fr);
+  gap: 12px;
+}
+
+.crypto-key-field {
+  grid-column: span 2;
+}
+
+.crypto-key-field textarea {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 9px;
+}
+
+.crypto-key-warning {
+  margin: 0;
+  color: #f0c779;
+}
+
 .crypto-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1462,6 +1512,18 @@ body.camera-preview-floating .camera-frame {
 
   .crypto-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .crypto-settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .crypto-key-field {
+    grid-column: auto;
+  }
+
+  .crypto-subheading {
+    flex-direction: column;
   }
 
   .verify-card {

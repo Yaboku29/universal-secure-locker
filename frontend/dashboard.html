@@ -52,36 +52,64 @@
     <section class="card message-crypto-panel" aria-labelledby="message-crypto-title">
       <div class="crypto-heading">
         <div>
-          <span class="eyebrow">PLACEHOLDER KRIPTOGRAFI</span>
-          <h2 id="message-crypto-title">Enkripsi dan dekripsi pesan</h2>
+          <span class="eyebrow">SUPER ENKRIPSI TEKS</span>
+          <h2 id="message-crypto-title">Enkripsi berlapis</h2>
         </div>
-        <span class="step-badge">Belum aktif</span>
+        <span class="step-badge">Caesar · Vigenere · XOR · RSA</span>
       </div>
-      <p class="crypto-notice">Algoritma enkripsi/dekripsi belum diimplementasikan. Tombol di bawah hanya placeholder; isi hasil ciphertext sendiri untuk menguji penyimpanan lokal.</p>
+      <p class="crypto-notice">Urutan enkripsi: Caesar → Vigenere → XOR → RSA-OAEP. Caesar/Vigenere mengubah huruf A–Z dan a–z; XOR memproses byte UTF-8. Hasil berupa teks heksadesimal (hanya 0–9 dan a–f). Ini implementasi edukasi, bukan pengganti enkripsi file yang terautentikasi.</p>
+      <section class="crypto-key-settings" aria-labelledby="crypto-key-title">
+        <div class="crypto-subheading">
+          <div>
+            <h3 id="crypto-key-title">Pengaturan kunci</h3>
+            <p>Gunakan shift dan kunci Vigenere/XOR yang sama saat dekripsi.</p>
+          </div>
+          <button class="button button-secondary" id="generate-rsa-key-button" type="button">Buat key pair RSA 3072-bit</button>
+        </div>
+        <div class="crypto-settings-grid">
+          <label class="form-field" for="caesar-shift-input">
+            <span>Caesar shift <small>0–25</small></span>
+            <input id="caesar-shift-input" type="number" min="0" max="25" step="1" value="3">
+          </label>
+          <label class="form-field" for="shared-cipher-key">
+            <span>Kunci Vigenere + XOR <small>minimal 12 huruf/angka</small></span>
+            <input id="shared-cipher-key" type="password" minlength="12" maxlength="128" pattern="[A-Za-z0-9]{12,128}" autocomplete="off" placeholder="Contoh: LockerKey2026">
+          </label>
+          <label class="form-field crypto-key-field" for="rsa-public-key">
+            <span>RSA public key (PEM) <small>untuk enkripsi</small></span>
+            <textarea id="rsa-public-key" rows="5" spellcheck="false" autocomplete="off" placeholder="Buat key pair atau tempel public key RSA PEM"></textarea>
+          </label>
+          <label class="form-field crypto-key-field" for="rsa-private-key">
+            <span>RSA private key (PEM) <small>untuk dekripsi — simpan cadangan dengan aman</small></span>
+            <textarea id="rsa-private-key" rows="5" spellcheck="false" autocomplete="off" placeholder="Buat key pair atau tempel private key RSA PEM"></textarea>
+          </label>
+        </div>
+        <p class="crypto-key-warning">Private key tidak disimpan oleh aplikasi. Simpan cadangan secara aman; tanpa private key yang cocok, ciphertext tidak dapat dipulihkan. Jangan bagikan private key.</p>
+      </section>
       <div class="crypto-grid">
         <section class="crypto-card" aria-labelledby="encrypt-message-title">
           <h3 id="encrypt-message-title">Enkripsi pesan</h3>
           <label class="form-field" for="plain-message-input">
             <span>Pesan asli</span>
-            <textarea id="plain-message-input" rows="4" placeholder="Tempat menulis pesan asli (belum dienkripsi)"></textarea>
+            <textarea id="plain-message-input" rows="4" maxlength="16384" placeholder="Tulis pesan yang akan dienkripsi"></textarea>
           </label>
-          <button class="button button-secondary" id="encrypt-message-button" type="button">Enkripsi — placeholder</button>
+          <button class="button button-secondary" id="encrypt-message-button" type="button">Enkripsi berlapis</button>
           <label class="form-field" for="encrypted-message-output">
-            <span>Hasil enkripsi / ciphertext</span>
-            <textarea id="encrypted-message-output" rows="4" placeholder="Isi ciphertext hasil enkripsi di sini"></textarea>
+            <span>Hasil ciphertext (hex)</span>
+            <textarea id="encrypted-message-output" rows="5" readonly spellcheck="false" placeholder="Hasil enkripsi hanya berisi angka dan huruf a–f"></textarea>
           </label>
           <button class="button button-primary" id="save-encrypted-message-button" type="button">Simpan ciphertext sebagai .txt</button>
         </section>
         <section class="crypto-card" aria-labelledby="decrypt-message-title">
           <h3 id="decrypt-message-title">Dekripsi pesan</h3>
           <label class="form-field" for="encrypted-message-input">
-            <span>Ciphertext</span>
-            <textarea id="encrypted-message-input" rows="4" placeholder="Tempat menempel pesan terenkripsi"></textarea>
+            <span>Ciphertext (hex)</span>
+            <textarea id="encrypted-message-input" rows="5" spellcheck="false" placeholder="Tempel ciphertext heksadesimal"></textarea>
           </label>
-          <button class="button button-secondary" id="decrypt-message-button" type="button">Dekripsi — placeholder</button>
+          <button class="button button-secondary" id="decrypt-message-button" type="button">Dekripsi berlapis</button>
           <label class="form-field" for="decrypted-message-output">
             <span>Hasil dekripsi</span>
-            <textarea id="decrypted-message-output" rows="4" placeholder="Hasil dekripsi akan tampil di sini" readonly></textarea>
+            <textarea id="decrypted-message-output" rows="5" placeholder="Hasil dekripsi akan tampil di sini" readonly></textarea>
           </label>
         </section>
       </div>

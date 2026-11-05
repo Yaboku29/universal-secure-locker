@@ -28,7 +28,7 @@ Aplikasi ini dirancang untuk memenuhi seluruh kriteria Tugas Akhir Kriptografi s
 |---|---|---|
 | 1 | **Login Biometrik & Dongle** | Aplikasi hanya dapat dibuka jika USB Flashdisk khusus (dongle) terdeteksi di port USB **DAN** verifikasi wajah pengguna via webcam berhasil. Memiliki modul *recovery mode* pendaftaran dongle baru dengan verifikasi biometrik ketat. |
 | 2 | **Login Kriptografi** | Kredensial akun utama diamankan di basis data menggunakan algoritma *hashing* terstandar (SHA-256 / Argon2). |
-| 3 | **Super Enkripsi Teks** | Catatan rahasia atau pesan teks dienkripsi secara berlapis menggunakan kombinasi algoritma modern (AES-256) dan klasik (Vigenere Cipher / Caesar Cipher). |
+| 3 | **Super Enkripsi Teks** | Pesan teks diproses berurutan dengan Caesar, Vigenere, XOR, lalu RSA-OAEP SHA-256. Implementasi Caesar/Vigenere/XOR ini untuk demonstrasi akademik dan bukan pengganti skema enkripsi terautentikasi untuk data produksi. |
 | 4 | **Enkripsi File** | File dokumen (PDF, DOCX, XLSX, dll.) dienkripsi menggunakan algoritma *file cipher* mandiri (seperti RSA atau Blowfish/AES-GCM) yang berbeda dari enkripsi teks. |
 | 5 | **Enkripsi Database** | Seluruh data sensitif dan metadata file yang tersimpan di dalam basis data lokal (SQLite) tersimpan dalam bentuk *ciphertext*. |
 | 6 | **Steganografi Gambar** | Modul khusus untuk menyembunyikan pesan teks rahasia atau kode *recovery* ke dalam file gambar (PNG/JPG) menggunakan teknik *Least Significant Bit* (LSB). |
@@ -37,6 +37,10 @@ Aplikasi ini dirancang untuk memenuhi seluruh kriteria Tugas Akhir Kriptografi s
 ---
 
 ## 3. Perkiraan Tech Stack (HTML/CSS UI + Python Engine)
+
+### Catatan RSA untuk Super Enkripsi Teks
+
+RSA menggunakan pasangan public/private key yang dibuat oleh pustaka kriptografi (minimal 3072-bit pada aplikasi), bukan pilihan bilangan prima 20–30 digit. Bilangan prima dengan panjang tersebut menghasilkan modulus yang terlalu kecil dan tidak aman. Public key digunakan untuk enkripsi; hanya private key pasangannya yang dapat mendekripsi. Private key wajib dicadangkan pengguna secara aman karena aplikasi tidak menyimpannya.
 
 Untuk mendapatkan tampilan UI/UX yang sangat fleksibel (berbasis HTML/CSS/JS) namun tetap mempertahankan keandalan pemrosesan kriptografi Python, *tech stack* yang direkomendasikan adalah:
 

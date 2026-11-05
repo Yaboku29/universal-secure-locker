@@ -714,20 +714,83 @@ async function initializeDashboard() {
     }
   });
 
-  $("#encrypt-message-button").addEventListener("click", () => {
-    showMessage(
-      $("#crypto-message"),
-      "Placeholder: algoritma enkripsi belum diimplementasikan. Isi ciphertext secara manual sebelum menyimpan.",
-    );
-    guideClosure("Fitur enkripsi pesan masih placeholder. Pesan asli tidak dienkripsi oleh aplikasi.");
+  $("#generate-rsa-key-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const keyPair = await callApi("generate_rsa_key_pair");
+      $("#rsa-public-key").value = keyPair.public_key;
+      $("#rsa-private-key").value = keyPair.private_key;
+      showMessage(
+        $("#crypto-message"),
+        "Key pair RSA 3072-bit berhasil dibuat. Simpan cadangan private key secara aman.",
+        "success",
+      );
+      guideClosure("Key pair RSA siap. Simpan private key di tempat aman; saya tidak menyimpannya.");
+    } catch (error) {
+      showMessage($("#crypto-message"), error.message, "error");
+      guideClosure(error.message);
+    } finally {
+      button.disabled = false;
+    }
   });
 
-  $("#decrypt-message-button").addEventListener("click", () => {
-    showMessage(
-      $("#crypto-message"),
-      "Placeholder: algoritma dekripsi belum diimplementasikan.",
-    );
-    guideClosure("Fitur dekripsi pesan belum aktif; aplikasi belum memproses ciphertext.");
+  function readCaesarShift() {
+    const shift = $("#caesar-shift-input").valueAsNumber;
+    if (!Number.isInteger(shift) || shift < 0 || shift > 25) {
+      throw new Error("Caesar shift harus berupa angka antara 0 dan 25.");
+    }
+    return shift;
+  }
+
+  $("#encrypt-message-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    $("#encrypted-message-output").value = "";
+    try {
+      const ciphertext = await callApi(
+        "encrypt_message",
+        $("#plain-message-input").value,
+        readCaesarShift(),
+        $("#shared-cipher-key").value,
+        $("#rsa-public-key").value,
+      );
+      $("#encrypted-message-output").value = ciphertext;
+      showMessage(
+        $("#crypto-message"),
+        "Pesan berhasil dienkripsi. Ciphertext hanya berisi karakter heksadesimal.",
+        "success",
+      );
+      guideClosure("Pesan selesai dienkripsi berlapis. Salin atau simpan ciphertext; jangan bagikan private key.");
+    } catch (error) {
+      showMessage($("#crypto-message"), error.message, "error");
+      guideClosure(error.message);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("#decrypt-message-button").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    $("#decrypted-message-output").value = "";
+    try {
+      const plaintext = await callApi(
+        "decrypt_message",
+        $("#encrypted-message-input").value.trim(),
+        readCaesarShift(),
+        $("#shared-cipher-key").value,
+        $("#rsa-private-key").value,
+      );
+      $("#decrypted-message-output").value = plaintext;
+      showMessage($("#crypto-message"), "Ciphertext berhasil didekripsi.", "success");
+      guideClosure("Pesan berhasil didekripsi menggunakan kunci dan parameter yang cocok.");
+    } catch (error) {
+      showMessage($("#crypto-message"), error.message, "error");
+      guideClosure(error.message);
+    } finally {
+      button.disabled = false;
+    }
   });
 
   $("#save-encrypted-message-button").addEventListener("click", async (event) => {
@@ -741,7 +804,6 @@ async function initializeDashboard() {
     saveButton.disabled = true;
     try {
       const filename = await callApi("save_encrypted_message", ciphertext);
-      $("#encrypted-message-output").value = "";
       currentParentId = null;
       currentFolderName = "";
       await loadVault();
@@ -758,6 +820,13 @@ async function initializeDashboard() {
       saveButton.disabled = false;
     }
   });
+
+  window.addEventListener("pagehide", () => {
+    $("#shared-cipher-key").value = "";
+    $("#rsa-private-key").value = "";
+    $("#plain-message-input").value = "";
+    $("#decrypted-message-output").value = "";
+  }, { once: true });
 
   uploadInput.addEventListener("change", async () => {
     const file = uploadInput.files?.[0];
