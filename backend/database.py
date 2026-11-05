@@ -354,6 +354,22 @@ class AccountDatabase:
                 )
             return self._account_dict(row)
 
+    def verify_account_password(self, account_id: int, password: str) -> None:
+        self._validate_account_id(account_id)
+        if not isinstance(password, str) or not 10 <= len(password) <= 128:
+            raise ValueError("Password akun salah.")
+
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT password_hash FROM accounts WHERE id = ?", (account_id,)
+            ).fetchone()
+        if row is None:
+            raise ValueError("Password akun salah.")
+        try:
+            self.password_hasher.verify(str(row["password_hash"]), password)
+        except (VerifyMismatchError, VerificationError, InvalidHashError) as error:
+            raise ValueError("Password akun salah.") from error
+
     def get_account(self, account_id: int) -> dict[str, int | str | bool]:
         self._validate_account_id(account_id)
         with self._connect() as connection:

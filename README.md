@@ -9,7 +9,7 @@ Login memiliki dua tahap:
 1. **Kunci perangkat:** USB Flashdisk dan verifikasi wajah melalui webcam.
 2. **Akun:** login atau pendaftaran dengan username dan password yang di-hash memakai Argon2id.
 
-Setelah login, akun dapat membuat folder, mengunggah, melihat/mengunduh, dan memperbarui file. Data file berada di disk lokal pada folder akun, sedangkan SQLite hanya menyimpan metadata dan izin. Pemilik item atau admin membagikan izin **buat, lihat, dan ubah** secara terpisah untuk setiap folder atau file. Tidak ada akses otomatis ke item milik akun lain, termasuk bagi admin; admin dapat mengatur izin, tetapi tetap perlu izin item untuk membaca kontennya. Penghapusan item belum tersedia.
+Setelah login, akun dapat membuat folder, mengunggah, melihat, mengunduh, dan memperbarui file. Setiap unduhan meminta password akun lagi. Data file berada di disk lokal pada folder akun, sedangkan SQLite hanya menyimpan metadata dan izin. Pemilik item atau admin membagikan izin **buat, lihat, dan ubah** secara terpisah untuk setiap folder atau file. Tidak ada akses otomatis ke item milik akun lain, termasuk bagi admin; admin dapat mengatur izin, tetapi tetap perlu izin item untuk membaca kontennya. Penghapusan item belum tersedia.
 
 Closure tampil sebagai pemandu dengan bubble dialog yang menyambut pengguna dan memperbarui petunjuk sesuai tahap pendaftaran, verifikasi, atau akses dashboard.
 
@@ -21,6 +21,7 @@ Closure tampil sebagai pemandu dengan bubble dialog yang menyambut pengguna dan 
 - Admin dapat mengatur izin pada item yang dikelola, tetapi status admin sendiri **tidak** memberikan akses baca ke seluruh isi vault. Pemilik file/folder juga dapat membagikan item miliknya.
 - Hak akses ditetapkan pada tiap item dan tidak diwariskan. Untuk membuka file di dalam folder bersama, penerima perlu hak **lihat** pada seluruh folder induk dan hak **lihat** pada file tersebut. Untuk membuat item di folder bersama, penerima perlu hak **lihat** dan **buat** di folder itu.
 - Hak **ubah** otomatis menyertakan hak **lihat**. Izin dapat dicabut dengan menghilangkan semua centang lalu menyimpan.
+- Tombol **Lihat** membuka preview file. Untuk setiap unduhan, tekan **Unduh** di bagian atas preview lalu verifikasi dengan password akun; setelah itu dialog simpan native akan meminta lokasi file. Membatalkan dialog tidak menyimpan file. Password yang salah tidak mengirimkan file.
 - Setiap akun memiliki folder lokal `storage/users/account-{id}-{username}/`. SQLite menyimpan metadata, hash password, dan izin; isi file berada pada filesystem lokal. Unggahan dibatasi 10 MiB.
 - Dokumen umum (termasuk PDF, teks, dan video) dienkripsi saat disimpan dengan AES-256-GCM. Saat sesi akun terkunci, file di folder lokal berisi ciphertext; file asli hanya didekripsi dalam memori ketika pengguna membuka atau mengunduhnya lewat aplikasi. Gambar dengan ekstensi umum seperti PNG/JPG/GIF/WEBP sengaja tetap utuh/tidak dienkripsi.
 - Folder dan file yang tampil di vault tetap memakai nama yang dipilih, sementara direktori fisiknya memakai ID resource untuk mencegah benturan nama/path. Kunci AES acak dilindungi Windows DPAPI untuk profil pengguna Windows ini, dan dibuka setelah login akun. Enkripsi ini melindungi file dari pembacaan langsung biasa melalui File Explorer, bukan dari malware/proses yang berjalan sebagai pengguna Windows yang sama atau akses administrator.

@@ -134,7 +134,7 @@
       </label>
       <div class="permission-options">
         <label id="share-create-option"><input id="share-create" type="checkbox"> <span>Buat folder/file di dalam folder</span></label>
-        <label><input id="share-read" type="checkbox"> <span>Lihat / unduh item</span></label>
+        <label><input id="share-read" type="checkbox"> <span>Lihat item</span></label>
         <label><input id="share-update" type="checkbox"> <span>Ubah item</span></label>
       </div>
       <p class="dialog-description">Izin pada folder tidak diwariskan ke folder/file di dalamnya. Bagikan setiap item secara terpisah.</p>
@@ -143,11 +143,24 @@
     </dialog>
 
     <dialog class="app-dialog preview-dialog" id="preview-dialog">
-      <form method="dialog" class="dialog-close-row">
-        <button class="dialog-close" aria-label="Tutup">×</button>
-      </form>
+      <div class="preview-toolbar">
+        <button class="button button-primary" id="download-resource-button" type="button">Unduh</button>
+        <form method="dialog">
+          <button class="dialog-close" aria-label="Tutup">×</button>
+        </form>
+      </div>
       <span class="eyebrow">PRATINJAU FILE</span>
       <h2 id="preview-title">File</h2>
+      <form id="download-password-form" class="download-password-panel" hidden>
+        <label class="form-field" for="download-password-input">
+          <span>Password akun untuk mengunduh</span>
+          <input id="download-password-input" type="password" autocomplete="current-password" required minlength="10" maxlength="128">
+        </label>
+        <button class="button button-primary" id="confirm-download-button" type="submit">Verifikasi &amp; unduh</button>
+        <p class="inline-message" id="download-message" role="status"></p>
+      </form>
+      <img id="preview-image" class="preview-image" alt="" hidden>
+      <iframe id="preview-frame" class="preview-frame" title="Pratinjau PDF" hidden></iframe>
       <pre id="preview-content"></pre>
     </dialog>
 

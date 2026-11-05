@@ -35,6 +35,13 @@ class AccountDatabaseTests(unittest.TestCase):
             self.database.authenticate("OWNER", "owner-password-123")["id"],
             self.owner["id"],
         )
+        self.database.verify_account_password(
+            self.owner["id"], "owner-password-123"
+        )
+        with self.assertRaisesRegex(ValueError, "Password akun salah"):
+            self.database.verify_account_password(
+                self.owner["id"], "wrong-password-123"
+            )
         with self.assertRaisesRegex(ValueError, "Username atau password salah"):
             self.database.authenticate("owner", "wrong-password-123")
 

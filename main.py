@@ -197,6 +197,40 @@ class LockerApi:
             "content_base64": base64.b64encode(data["content"]).decode("ascii"),
         }
 
+    def download_resource(
+        self, resource_id: str, password: str
+    ) -> dict[str, str | bool]:
+        account_id = self._require_account_authentication()
+        self.accounts.verify_account_password(account_id, password)
+        data = self.accounts.read_file(account_id, resource_id)
+        destination = self._select_download_path(str(data["name"]))
+        if destination is None:
+            return {"cancelled": True, "name": str(data["name"])}
+        try:
+            destination.write_bytes(data["content"])
+        except OSError as error:
+            raise RuntimeError(
+                "File tidak dapat disimpan ke lokasi yang dipilih."
+            ) from error
+        logger.info(
+            "File %s berhasil diunduh oleh akun %s.",
+            data["name"],
+            account_id,
+        )
+        return {"cancelled": False, "name": str(data["name"])}
+
+    @staticmethod
+    def _select_download_path(filename: str) -> Path | None:
+        if not webview.windows:
+            raise RuntimeError("Dialog simpan file tidak tersedia.")
+        selected_paths = webview.windows[0].create_file_dialog(
+            webview.FileDialog.SAVE,
+            save_filename=filename,
+        )
+        if not selected_paths:
+            return None
+        return Path(selected_paths[0])
+
     def update_resource(
         self,
         resource_id: str,

@@ -2,11 +2,12 @@ import base64
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from backend.database import AccountDatabase
 from backend.security.file_crypto import FileEncryption
 from backend.security.file_key_store import WindowsFileKeyStore
-from main import LockerApi
+from main import LockerApi, webview
 
 
 class BiometricStub:
@@ -78,6 +79,23 @@ class AccountApiTests(unittest.TestCase):
             base64.b64decode(self.api.read_resource(resource_id)["content_base64"]),
             document,
         )
+        download_path = Path(self.temporary_directory.name) / "downloaded.pdf"
+        with patch.object(
+            self.api, "_select_download_path", return_value=download_path
+        ) as select_path:
+            with self.assertRaisesRegex(ValueError, "Password akun salah"):
+                self.api.download_resource(resource_id, "wrong-password-123")
+            select_path.assert_not_called()
+            download_result = self.api.download_resource(
+                resource_id, "first-password-123"
+            )
+        self.assertEqual(download_result, {"cancelled": False, "name": "secure.pdf"})
+        self.assertEqual(download_path.read_bytes(), document)
+        with patch.object(self.api, "_select_download_path", return_value=None):
+            cancelled = self.api.download_resource(
+                resource_id, "first-password-123"
+            )
+        self.assertEqual(cancelled, {"cancelled": True, "name": "secure.pdf"})
         key_pair = self.api.generate_rsa_key_pair()
         ciphertext = self.api.encrypt_message(
             "pesan API", 5, "LockerKey2026", key_pair["public_key"]
@@ -103,6 +121,18 @@ class AccountApiTests(unittest.TestCase):
             document,
         )
 
+    def test_download_path_uses_native_save_dialog(self) -> None:
+        selected_path = Path(self.temporary_directory.name) / "saved.txt"
+        window = Mock()
+        window.create_file_dialog.return_value = (str(selected_path),)
+        with patch("main.webview.windows", [window]):
+            result = self.api._select_download_path("document.txt")
+
+        self.assertEqual(result, selected_path)
+        window.create_file_dialog.assert_called_once_with(
+            webview.FileDialog.SAVE, save_filename="document.txt"
+        )
+
     def test_account_creation_and_login_are_blocked_after_logout(self) -> None:
         self.api._usb_verified = True
         self.api._face_verified = True
@@ -122,6 +152,8 @@ class AccountApiTests(unittest.TestCase):
             self.api.encrypt_message(
                 "secret", 3, "LockerKey2026", "public-key"
             )
+        with self.assertRaises(PermissionError):
+            self.api.download_resource("resource-id", "first-password-123")
         self.assertFalse(self.api.is_authenticated())
 
 

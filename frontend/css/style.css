@@ -29,6 +29,11 @@ body {
     #0b1220;
 }
 
+body.file-preview-open {
+  height: 100vh;
+  overflow: hidden;
+}
+
 button,
 select {
   font: inherit;
@@ -1179,12 +1184,61 @@ body.camera-preview-floating .camera-frame {
 
 .preview-dialog {
   width: min(720px, calc(100% - 32px));
+  height: min(78vh, 680px);
+  max-height: min(85vh, 720px);
+  overflow: hidden;
+}
+
+.preview-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-dialog > .preview-toolbar,
+.preview-dialog > .eyebrow,
+.preview-dialog > h2,
+.preview-dialog > .download-password-panel {
+  flex-shrink: 0;
+}
+
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -8px -8px 14px;
+}
+
+.preview-toolbar form {
+  margin: 0;
+}
+
+.download-password-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #34425a;
+  border-radius: 10px;
+  background: rgb(12 20 33 / 75%);
+}
+
+.download-password-panel[hidden] {
+  display: none;
+}
+
+.download-password-panel .button {
+  justify-self: start;
+}
+
+.download-password-panel .inline-message {
+  margin: 0;
 }
 
 .preview-dialog pre {
-  max-height: 55vh;
+  min-height: 0;
+  flex: 1 1 0;
   overflow: auto;
-  margin: 16px 0 0;
+  margin: 0;
   padding: 15px;
   border: 1px solid #2a3648;
   border-radius: 9px;
@@ -1193,6 +1247,32 @@ body.camera-preview-floating .camera-frame {
   font: 12px/1.65 Consolas, monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.preview-image,
+.preview-frame {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 0;
+  margin: 0;
+  border: 1px solid #2a3648;
+  border-radius: 9px;
+  background: #0b0c10;
+}
+
+.preview-image {
+  height: 0;
+  object-fit: contain;
+}
+
+.preview-frame {
+  height: 0;
+}
+
+.preview-image[hidden],
+.preview-frame[hidden] {
+  display: none;
 }
 
 .logout-button {

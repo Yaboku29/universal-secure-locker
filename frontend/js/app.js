@@ -474,10 +474,13 @@ async function initializeDashboard() {
   const uploadInput = $("#upload-file-input");
   const replaceInput = $("#replace-file-input");
   const shareDialog = $("#share-dialog");
+  const previewDialog = $("#preview-dialog");
   let currentParentId = null;
   let currentFolderName = "";
   let itemToReplace = null;
   let itemToShare = null;
+  let resourceToDownload = null;
+  let previewObjectUrl = null;
 
   function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
@@ -507,6 +510,56 @@ async function initializeDashboard() {
   function showVaultError(error) {
     showMessage(vaultMessage, error.message, "error");
     guideClosure(error.message);
+  }
+
+  function showFilePreview(file) {
+    const binary = atob(file.content_base64);
+    const bytes = Uint8Array.from(binary, (character) =>
+      character.charCodeAt(0),
+    );
+    const blob = new Blob([bytes], { type: file.content_type });
+    const isText =
+      file.content_type.startsWith("text/") ||
+      /^(application\/(json|xml|javascript))$/.test(file.content_type) ||
+      /\.(csv|json|md|txt|xml|yaml|yml)$/i.test(file.name);
+    const imagePreview = $("#preview-image");
+    const documentPreview = $("#preview-frame");
+    const textPreview = $("#preview-content");
+
+    if (previewObjectUrl !== null) {
+      URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = null;
+    }
+    imagePreview.hidden = true;
+    imagePreview.removeAttribute("src");
+    documentPreview.hidden = true;
+    documentPreview.removeAttribute("src");
+    textPreview.hidden = false;
+    textPreview.textContent = "";
+
+    if (isText) {
+      textPreview.textContent = new TextDecoder().decode(bytes);
+    } else if (file.content_type.startsWith("image/")) {
+      previewObjectUrl = URL.createObjectURL(blob);
+      imagePreview.src = previewObjectUrl;
+      imagePreview.alt = `Pratinjau ${file.name}`;
+      imagePreview.hidden = false;
+      textPreview.hidden = true;
+    } else if (file.content_type === "application/pdf") {
+      previewObjectUrl = URL.createObjectURL(blob);
+      documentPreview.src = previewObjectUrl;
+      documentPreview.hidden = false;
+      textPreview.hidden = true;
+    } else {
+      textPreview.textContent =
+        "Pratinjau tidak tersedia untuk jenis file ini. Gunakan tombol Unduh di bagian atas untuk menyimpan file.";
+    }
+    $("#preview-title").textContent = file.name;
+    $("#download-password-form").hidden = true;
+    $("#download-password-input").value = "";
+    showMessage($("#download-message"), "");
+    previewDialog.showModal();
+    document.body.classList.add("file-preview-open");
   }
 
   async function loadVault() {
@@ -562,30 +615,11 @@ async function initializeDashboard() {
           );
         } else {
           actions.append(
-            makeButton("Lihat / unduh", async () => {
+            makeButton("Lihat", async () => {
               try {
                 const file = await callApi("read_resource", resource.id);
-                const binary = atob(file.content_base64);
-                const bytes = Uint8Array.from(binary, (character) =>
-                  character.charCodeAt(0),
-                );
-                const blob = new Blob([bytes], { type: file.content_type });
-                const isText =
-                  file.content_type.startsWith("text/") ||
-                  /^(application\/(json|xml|javascript))$/.test(file.content_type) ||
-                  /\.(csv|json|md|txt|xml|yaml|yml)$/i.test(file.name);
-                if (isText) {
-                  $("#preview-title").textContent = file.name;
-                  $("#preview-content").textContent = new TextDecoder().decode(bytes);
-                  $("#preview-dialog").showModal();
-                } else {
-                  const objectUrl = URL.createObjectURL(blob);
-                  const download = document.createElement("a");
-                  download.href = objectUrl;
-                  download.download = file.name;
-                  download.click();
-                  URL.revokeObjectURL(objectUrl);
-                }
+                resourceToDownload = resource;
+                showFilePreview(file);
               } catch (error) {
                 showVaultError(error);
               }
@@ -711,6 +745,75 @@ async function initializeDashboard() {
       await loadVault();
     } catch (error) {
       showVaultError(error);
+    }
+  });
+
+  $("#download-resource-button").addEventListener("click", () => {
+    if (!resourceToDownload) {
+      showMessage(
+        $("#download-message"),
+        "Pilih file melalui tombol Lihat terlebih dahulu.",
+        "error",
+      );
+      return;
+    }
+    $("#download-password-form").hidden = false;
+    $("#download-password-input").value = "";
+    showMessage($("#download-message"), "Masukkan password akun untuk setiap unduhan.");
+    $("#download-password-input").focus();
+  });
+
+  $("#download-password-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!resourceToDownload) {
+      showMessage($("#download-message"), "File yang dipilih tidak tersedia.", "error");
+      return;
+    }
+    const passwordInput = $("#download-password-input");
+    const confirmButton = $("#confirm-download-button");
+    const password = passwordInput.value;
+    if (!password) {
+      showMessage($("#download-message"), "Masukkan password akun.", "error");
+      return;
+    }
+
+    confirmButton.disabled = true;
+    try {
+      const result = await callApi(
+        "download_resource",
+        resourceToDownload.id,
+        password,
+      );
+      if (result.cancelled) {
+        showMessage($("#download-message"), "Unduhan dibatalkan.");
+        return;
+      }
+      $("#download-password-form").hidden = true;
+      showMessage(
+        $("#download-message"),
+        `File berhasil disimpan: ${result.name}.`,
+        "success",
+      );
+      guideClosure(`File ${result.name} berhasil disimpan setelah password akun diverifikasi.`);
+    } catch (error) {
+      showMessage($("#download-message"), error.message, "error");
+      guideClosure(error.message);
+    } finally {
+      passwordInput.value = "";
+      confirmButton.disabled = false;
+    }
+  });
+
+  previewDialog.addEventListener("close", () => {
+    resourceToDownload = null;
+    $("#download-password-input").value = "";
+    $("#download-password-form").hidden = true;
+    $("#preview-image").removeAttribute("src");
+    $("#preview-frame").removeAttribute("src");
+    document.body.classList.remove("file-preview-open");
+    if (previewObjectUrl !== null) {
+      URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = null;
     }
   });
 
