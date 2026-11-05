@@ -176,32 +176,93 @@ Jika PowerShell menolak aktivasi environment virtual, gunakan Python dari enviro
 
 Untuk menguji penolakan akses, lepaskan flashdisk terdaftar atau coba verifikasi menggunakan wajah yang berbeda. Pendaftaran biometrik tersimpan lokal di `storage/face_model.yml`; hash token tersimpan di `storage/auth_config.json`. Kedua file tersebut tidak ditambahkan ke Git.
 
+## Cara Menggunakan Fitur Aplikasi
+
+### Brankas File dan Izin
+
+1. Setelah login, gunakan **＋ Folder** untuk membuat folder. Masuk ke folder dengan memilihnya; gunakan **Kembali** untuk kembali ke folder utama.
+2. Gunakan **＋ Unggah file** di dashboard untuk memilih file dari komputer. Ukuran unggahan maksimal 10 MiB. Dokumen umum dienkripsi di penyimpanan lokal; gambar yang didukung tetap tidak dienkripsi.
+3. Pilih **Lihat** pada file untuk membuka pratinjau di dalam aplikasi. Untuk menyimpan salinan ke komputer, tekan **Unduh** di bagian atas pratinjau, masukkan password akun yang sedang login, lalu pilih lokasi pada dialog simpan. Unduhan adalah salinan plaintext; file di vault tetap terenkripsi.
+4. Pemilik atau admin dapat menggunakan **Atur akses** pada item untuk memberikan izin **Lihat**, **Ubah**, atau—pada folder—**Buat** kepada akun lain. Izin tidak diwariskan: untuk melihat file dalam folder bersama, penerima perlu izin lihat pada folder induk dan file itu sendiri.
+5. Untuk mengganti file, gunakan aksi **Ubah** pada item yang dapat diedit. Gunakan **Kunci aplikasi** untuk logout dan mengunci database serta kunci enkripsi.
+
+### Enkripsi dan Dekripsi Pesan
+
+1. Di dashboard, pada panel **Enkripsi berlapis**, tekan **Buat key pair RSA 3072-bit** atau masukkan key pair RSA PEM yang sudah dimiliki. Salin dan simpan private key dengan aman; aplikasi tidak menyimpannya.
+2. Isi Caesar shift 0–25, kunci alfanumerik yang sama (12–128 karakter) untuk Vigenere dan XOR, public key RSA, lalu pesan plaintext. Tekan **Enkripsi berlapis**.
+3. Tekan **Simpan ciphertext sebagai .txt** untuk menyimpan ciphertext ke folder akun sebagai `pesan_terenkripsi_{angka}.txt`; file akan muncul di daftar brankas. Hanya ciphertext yang disimpan.
+4. Untuk dekripsi, tempel ciphertext, masukkan Caesar shift dan kunci yang sama, serta private key RSA yang cocok, lalu tekan **Dekripsi berlapis**.
+
+### Steganografi PNG
+
+1. Dari dashboard, buka halaman **Steganografi**.
+2. Untuk menyisipkan pesan, pilih PNG, tempel ciphertext heksadesimal yang dihasilkan fitur enkripsi pesan, lalu tekan **Sisipkan & simpan PNG**. Pilih folder tujuan pada dialog folder native. Hasil memakai nama PNG sumber; jika sudah ada, aplikasi menambahkan `(1)`, `(2)`, dan seterusnya. Gambar hasil disimpan di folder tujuan yang dipilih, bukan otomatis ke vault.
+3. Untuk membaca pesan, pilih PNG yang berisi pesan dan tekan **Ekstrak ciphertext**. Salin hasilnya, kembali ke dashboard, lalu gunakan panel dekripsi dengan parameter dan private key RSA yang sesuai.
+4. Jangan mengubah hasil menjadi JPEG atau mengirimkannya melalui layanan yang mengompres/mengubah gambar karena data LSB dapat rusak.
+
+### Menjalankan Versi Executable
+
+Setelah build selesai, jalankan `dist\UniversalSecureLocker.exe` atau salin executable ke folder yang dapat ditulis lalu jalankan dari sana. Aplikasi membuat folder `storage/` di sebelah executable untuk data akun, database, dan file. Jangan menghapus `storage/file-encryption-key.dpapi`; file terenkripsi tidak dapat dipulihkan tanpanya. Untuk backup atau pemindahan, baca catatan enkripsi dan keterikatan kunci DPAPI pada bagian keamanan.
+
 ## Struktur Proyek
 
 ```text
 universal-secure-locker/
 ├── backend/
-│   ├── database.py            # Akun Argon2id, resource, dan ACL per item
+│   ├── blockchain.py          # Rantai audit SHA-256 di SQLite
+│   ├── database.py            # Akun, metadata resource, izin, catatan, dan ledger
+│   ├── modules/
+│   │   ├── blockchain_ledger.py
+│   │   ├── locker_manager.py
+│   │   └── steganography.py
 │   ├── security/
-│   │   ├── biometric_auth.py
-│   │   └── dongle_auth.py
-│   └── modules/
+│   │   ├── biometric_auth.py   # Pendaftaran dan verifikasi wajah
+│   │   ├── crypto_engine.py    # Enkripsi/dekripsi pesan dan key RSA
+│   │   ├── database_crypto.py  # Database terenkripsi saat terkunci
+│   │   ├── dongle_auth.py      # Pendaftaran dan verifikasi USB
+│   │   ├── file_crypto.py      # Enkripsi file AES-GCM
+│   │   ├── file_key_store.py   # Penyimpanan kunci file dengan DPAPI
+│   │   └── steganography.py    # Sisip/ekstrak ciphertext pada PNG
 ├── frontend/
-│   ├── index.html
-│   ├── dashboard.html
+│   ├── index.html              # Verifikasi perangkat dan login/daftar
+│   ├── dashboard.html          # Brankas, enkripsi/dekripsi pesan
+│   ├── steganography.html      # Sisip dan ekstrak ciphertext PNG
+│   ├── assets/
+│   │   └── img/
+│   │       └── Closure_2.png
 │   ├── css/
-│   │   └── style.css
+│   │   └── style.css           # Tampilan semua halaman
 │   └── js/
-│       ├── app.js
-│       └── api.js
-├── storage/                  # Data autentikasi lokal, diabaikan Git
-├── main.py
-├── requirements.txt
+│       ├── api.js              # Bridge pemanggilan API Python
+│       ├── app.js              # Interaksi UI dan alur aplikasi
+│       └── webcam.js           # Akses pratinjau webcam
+├── storage/                    # Data lokal runtime; diabaikan Git
+│   ├── accounts.db             # Database terenkripsi saat aplikasi terkunci
+│   ├── auth_config.json        # Konfigurasi/hash token USB
+│   ├── face_model.yml          # Model pengenalan wajah
+│   ├── file-encryption-key.dpapi
+│   └── users/
+│       └── account-{id}-{username}/
+│                               # File akun dan ciphertext dokumen
+├── main.py                     # Aplikasi desktop, API, dan resource path
+├── UniversalSecureLocker.spec  # Konfigurasi PyInstaller
+├── build_windows.bat           # Perintah build Windows
+├── requirements.txt            # Dependensi aplikasi
+├── requirements-build.txt      # Dependensi aplikasi + PyInstaller
 ├── tests/
 │   ├── test_account_api.py
-│   └── test_account_database.py
+│   ├── test_account_database.py
+│   ├── test_blockchain.py
+│   ├── test_crypto_engine.py
+│   ├── test_database_crypto.py
+│   ├── test_file_crypto.py
+│   └── test_steganography.py
+├── .gitignore
+├── dokumen_perancangan_project_akhir_kriptografi.md
 └── README.md
 ```
+
+Folder `.venv/`, `build/`, `dist/`, cache Python, serta `storage/` adalah folder lokal/runtime dan diabaikan Git. File di bawah `storage/` dibuat saat aplikasi digunakan; beberapa file baru muncul setelah pendaftaran wajah/USB atau pembuatan akun.
 
 Rincian latar belakang dan rancangan keseluruhan terdapat di [dokumen perancangan proyek](./dokumen_perancangan_project_akhir_kriptografi.md).
 
