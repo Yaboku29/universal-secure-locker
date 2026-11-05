@@ -51,12 +51,13 @@ Log menggunakan format waktu, level, dan nama logger, misalnya `INFO universal_s
 | USB | **Windows API melalui `ctypes`** | Mencari drive removable dan memeriksa token pada flashdisk tanpa dependensi tambahan. |
 | Password akun | **Argon2id (`argon2-cffi`)** | Menyimpan hash password akun dengan salt dan parameter Argon2id. |
 | Super enkripsi pesan | **`cryptography`** | RSA-OAEP SHA-256 3072-bit; Caesar, Vigenere, dan XOR untuk demonstrasi berlapis. |
+| Steganografi gambar | **Pillow** | Menyisipkan ciphertext heksadesimal ke bit LSB pada gambar PNG tanpa kompresi destruktif. |
 | Enkripsi file dokumen | **AES-256-GCM (`cryptography`)** | Mengenkripsi dokumen pada filesystem; kunci acak dilindungi DPAPI Windows. Gambar dikecualikan. |
 | Akun, izin, dan metadata | **SQLite melalui `sqlite3` bawaan Python** | Menyimpan akun, hash, metadata resource, dan izin per item di `storage/accounts.db`. |
 | Konten file | **Filesystem lokal** | Menyimpan file di `storage/users/account-{id}-{username}/`; folder ini diabaikan Git. |
 | Faktor perangkat | **JSON dan model OpenCV lokal** | Menyimpan hash token USB dan model wajah pada folder `storage/`. |
 
-PyWebView dipilih daripada Electron atau API FastAPI/Flask agar tahap awal tetap ringan dan tidak membutuhkan server web terpisah. Enkripsi file/database, steganografi, dan audit ledger direncanakan untuk tahap berikutnya dan belum digunakan.
+PyWebView dipilih daripada Electron atau API FastAPI/Flask agar tahap awal tetap ringan dan tidak membutuhkan server web terpisah.
 
 ### Super Enkripsi Teks
 
@@ -67,6 +68,23 @@ PyWebView dipilih daripada Electron atau API FastAPI/Flask agar tahap awal tetap
 5. Key pair yang dibuat tidak disimpan aplikasi. Simpan private key di tempat aman dan jangan membagikannya. Jika hilang, ciphertext tidak dapat didekripsi.
 
 Jangan memilih bilangan prima RSA 20–30 digit: ukuran tersebut terlalu kecil untuk keamanan RSA modern. Pembuatan key pair 3072-bit oleh pustaka kriptografi lebih tepat daripada memasukkan bilangan prima sendiri. Lapisan Caesar/Vigenere/XOR adalah algoritma klasik untuk demonstrasi dan tidak menambah keamanan RSA yang berarti; fitur ini tidak memberikan autentikasi/integritas ciphertext dan tidak menggantikan enkripsi file dengan skema terautentikasi seperti AES-GCM. Jangan gunakan sebagai satu-satunya perlindungan data penting.
+
+### Steganografi Gambar
+
+- Modul `backend/security/steganography.py` menyediakan `hide_message(image_path, secret_text, output_path)` dan `reveal_message(image_path)`.
+- Hanya PNG yang didukung. Fungsi sisip menolak teks biasa dan menerima payload dalam format heksadesimal seperti ciphertext dari super enkripsi. Fungsi ini memvalidasi format ciphertext, tetapi tidak dapat membuktikan bahwa string heksadesimal benar-benar dienkripsi; enkripsi harus dilakukan lebih dulu melalui fitur super enkripsi.
+- Contoh pemakaian setelah memperoleh ciphertext di aplikasi:
+
+  ```python
+  from backend.security.steganography import hide_message, reveal_message
+
+  hide_message("foto.png", ciphertext, "foto-rahasia.png")
+  extracted_ciphertext = reveal_message("foto-rahasia.png")
+  ```
+
+- Kapasitas diperiksa sebelum menyisipkan. Tiap kanal warna RGB menyimpan satu bit dan nilai kanal berubah paling banyak satu; alpha dipertahankan. Maksimum ukuran gambar adalah 40 megapiksel dan payload dibatasi 64 KiB.
+- Halaman **Steganografi** tersedia dari tombol di dashboard. Halaman ini menyediakan formulir untuk menyisipkan ciphertext ke PNG (hasil disimpan melalui dialog lokasi native) dan mengekstrak ciphertext kembali. Hanya akun yang sedang login yang dapat menggunakan API tersebut.
+- Simpan hasil sebagai PNG. Mengubahnya ke JPG atau mengirimkannya melalui layanan yang mengubah ukuran/kompresi gambar dapat merusak pesan tersembunyi. LSB bukan perlindungan terhadap analisis steganografi; fitur ini bukan metode untuk menghindari pemantauan atau pemeriksaan keamanan.
 
 ### Enkripsi File Dokumen
 

@@ -11,12 +11,15 @@ from backend.security.crypto_engine import SuperEncryption
 from backend.security.database_crypto import DatabaseFileEncryption
 from backend.security.dongle_auth import DongleAuth
 from backend.security.file_key_store import WindowsFileKeyStore
+from backend.security.steganography import hide_message, reveal_message
 
 
 logger = logging.getLogger("universal_secure_locker")
 
 
 class LockerApi:
+    max_steganography_image_size = 10 * 1024 * 1024
+
     def __init__(self, storage_dir: Path) -> None:
         self.dongle = DongleAuth(storage_dir)
         self.biometric = BiometricAuth(storage_dir)
@@ -276,16 +279,91 @@ class LockerApi:
         return {"cancelled": False, "name": str(data["name"])}
 
     @staticmethod
-    def _select_download_path(filename: str) -> Path | None:
+    def _select_download_path(
+        filename: str, file_types: tuple[str, ...] = ()
+    ) -> Path | None:
         if not webview.windows:
             raise RuntimeError("Dialog simpan file tidak tersedia.")
         selected_paths = webview.windows[0].create_file_dialog(
             webview.FileDialog.SAVE,
             save_filename=filename,
+            file_types=file_types,
         )
         if not selected_paths:
             return None
         return Path(selected_paths[0])
+
+    @classmethod
+    def _decode_steganography_image(
+        cls, image_base64: str, image_name: str
+    ) -> bytes:
+        if (
+            not isinstance(image_name, str)
+            or not image_name
+            or len(image_name) > 255
+            or Path(image_name).name != image_name
+            or "\x00" in image_name
+            or Path(image_name).suffix.lower() != ".png"
+        ):
+            raise ValueError("Pilih file gambar PNG.")
+        if (
+            not isinstance(image_base64, str)
+            or len(image_base64) > (cls.max_steganography_image_size * 4 // 3) + 8
+        ):
+            raise ValueError("Ukuran gambar maksimal 10 MiB.")
+        try:
+            image_content = base64.b64decode(image_base64, validate=True)
+        except ValueError as error:
+            raise ValueError("Isi gambar tidak valid.") from error
+        if len(image_content) > cls.max_steganography_image_size:
+            raise ValueError("Ukuran gambar maksimal 10 MiB.")
+        if not image_content.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise ValueError("File yang dipilih bukan gambar PNG yang valid.")
+        return image_content
+
+    def hide_steganographic_message(
+        self, image_base64: str, image_name: str, ciphertext: str
+    ) -> dict[str, bool | str]:
+        account_id = self._require_account_authentication()
+        image_content = self._decode_steganography_image(image_base64, image_name)
+        output_name = f"{Path(image_name).stem}-stego.png"
+        with tempfile.TemporaryDirectory(prefix="usl-steganography-") as directory:
+            temporary_directory = Path(directory)
+            source_path = temporary_directory / "source.png"
+            output_path = temporary_directory / output_name
+            source_path.write_bytes(image_content)
+            hide_message(source_path, ciphertext, output_path)
+
+            destination = self._select_download_path(
+                output_name, ("PNG Image (*.png)",)
+            )
+            if destination is None:
+                return {"cancelled": True, "name": output_name}
+            if destination.suffix.lower() != ".png":
+                destination = destination.with_suffix(".png")
+            try:
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(output_path.read_bytes())
+            except OSError as error:
+                raise RuntimeError(
+                    "Gambar hasil steganografi tidak dapat disimpan."
+                ) from error
+
+        logger.info(
+            "Gambar steganografi berhasil dibuat untuk akun %s.",
+            account_id,
+        )
+        return {"cancelled": False, "name": destination.name}
+
+    def reveal_steganographic_message(
+        self, image_base64: str, image_name: str
+    ) -> str:
+        self._require_account_authentication()
+        image_content = self._decode_steganography_image(image_base64, image_name)
+        with tempfile.TemporaryDirectory(prefix="usl-steganography-") as directory:
+            image_path = Path(directory) / "image.png"
+            image_path.write_bytes(image_content)
+            return reveal_message(image_path)
 
     def update_resource(
         self,

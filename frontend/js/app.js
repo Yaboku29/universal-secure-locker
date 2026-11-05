@@ -1017,8 +1017,193 @@ async function initializeDashboard() {
   await loadVault();
 }
 
+async function initializeSteganographyPage() {
+  try {
+    if (!(await callApi("is_authenticated"))) {
+      window.location.replace("index.html");
+      return;
+    }
+  } catch (error) {
+    window.alert(error.message);
+    window.location.replace("index.html");
+    return;
+  }
+
+  const account = await callApi("get_current_account");
+  $("#active-username").textContent =
+    `${account.username}${account.is_admin ? " · ADMIN" : ""}`;
+  const hideForm = $("#steg-hide-form");
+  const revealForm = $("#steg-reveal-form");
+  const hideInput = $("#steg-hide-image");
+  const revealInput = $("#steg-reveal-image");
+  const hidePreview = $("#steg-hide-preview");
+  const revealPreview = $("#steg-reveal-preview");
+  const hiddenCiphertext = $("#steg-ciphertext");
+  const revealedCiphertext = $("#steg-revealed-ciphertext");
+  const copyButton = $("#steg-copy-button");
+  const previewUrls = new Map();
+  const maxImageBytes = 10 * 1024 * 1024;
+
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        const result = reader.result;
+        if (typeof result !== "string" || !result.includes(",")) {
+          reject(new Error("Gambar gagal dibaca."));
+          return;
+        }
+        resolve(result.slice(result.indexOf(",") + 1));
+      });
+      reader.addEventListener("error", () => reject(new Error("Gambar gagal dibaca.")));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function validateImage(file) {
+    if (!file) throw new Error("Pilih gambar PNG terlebih dahulu.");
+    if (!file.name.toLowerCase().endsWith(".png")) {
+      throw new Error("Format gambar yang didukung hanya PNG.");
+    }
+    if (file.size > maxImageBytes) {
+      throw new Error("Ukuran gambar maksimal 10 MiB.");
+    }
+  }
+
+  function attachPreview(input, preview, messageElement) {
+    input.addEventListener("change", () => {
+      const previousUrl = previewUrls.get(preview);
+      if (previousUrl) URL.revokeObjectURL(previousUrl);
+      preview.removeAttribute("src");
+      preview.hidden = true;
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        validateImage(file);
+        const url = URL.createObjectURL(file);
+        previewUrls.set(preview, url);
+        preview.src = url;
+        preview.hidden = false;
+        showMessage(messageElement, "");
+      } catch (error) {
+        input.value = "";
+        showMessage(messageElement, error.message, "error");
+      }
+    });
+  }
+
+  attachPreview(hideInput, hidePreview, $("#steg-hide-message"));
+  attachPreview(revealInput, revealPreview, $("#steg-reveal-message"));
+
+  hideForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = $("#steg-hide-button");
+    try {
+      const image = hideInput.files?.[0];
+      validateImage(image);
+      const ciphertext = hiddenCiphertext.value.trim();
+      if (!ciphertext || ciphertext.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(ciphertext)) {
+        throw new Error("Masukkan ciphertext heksadesimal dengan panjang genap.");
+      }
+      button.disabled = true;
+      showMessage($("#steg-hide-message"), "Memproses PNG, periksa juga kapasitas gambarnya.");
+      const imageBase64 = await readFileAsBase64(image);
+      const result = await callApi(
+        "hide_steganographic_message",
+        imageBase64,
+        image.name,
+        ciphertext,
+      );
+      if (result.cancelled) {
+        showMessage($("#steg-hide-message"), "Penyimpanan gambar dibatalkan.");
+        return;
+      }
+      showMessage(
+        $("#steg-hide-message"),
+        `Gambar steganografi berhasil disimpan sebagai ${result.name}.`,
+        "success",
+      );
+      guideClosure(`Ciphertext berhasil disisipkan dan disimpan sebagai ${result.name}.`);
+    } catch (error) {
+      showMessage($("#steg-hide-message"), error.message, "error");
+      guideClosure(error.message);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  revealForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = $("#steg-reveal-button");
+    try {
+      const image = revealInput.files?.[0];
+      validateImage(image);
+      button.disabled = true;
+      copyButton.disabled = true;
+      revealedCiphertext.value = "";
+      showMessage($("#steg-reveal-message"), "Mencari pesan tersembunyi di dalam PNG.");
+      const imageBase64 = await readFileAsBase64(image);
+      const ciphertext = await callApi(
+        "reveal_steganographic_message",
+        imageBase64,
+        image.name,
+      );
+      revealedCiphertext.value = ciphertext;
+      copyButton.disabled = false;
+      showMessage(
+        $("#steg-reveal-message"),
+        "Ciphertext berhasil diekstrak. Gunakan halaman super enkripsi untuk mendekripsinya.",
+        "success",
+      );
+      guideClosure("Ciphertext berhasil diekstrak. Dekripsi dengan parameter dan private key RSA yang cocok.");
+    } catch (error) {
+      showMessage($("#steg-reveal-message"), error.message, "error");
+      guideClosure(error.message);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  copyButton.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(revealedCiphertext.value);
+    } catch {
+      revealedCiphertext.focus();
+      revealedCiphertext.select();
+      if (!document.execCommand("copy")) {
+        showMessage(
+          $("#steg-reveal-message"),
+          "Clipboard tidak tersedia. Pilih dan salin ciphertext secara manual.",
+          "error",
+        );
+        return;
+      }
+    }
+    showMessage($("#steg-reveal-message"), "Ciphertext berhasil disalin.", "success");
+  });
+
+  $("#logout-button").addEventListener("click", async () => {
+    try {
+      await callApi("logout");
+      window.location.replace("index.html");
+    } catch (error) {
+      window.alert(error.message);
+    }
+  });
+
+  window.addEventListener("pagehide", () => {
+    for (const url of previewUrls.values()) URL.revokeObjectURL(url);
+    previewUrls.clear();
+    hiddenCiphertext.value = "";
+    revealedCiphertext.value = "";
+  }, { once: true });
+
+  guideClosure("Pilih PNG dan ciphertext hasil super enkripsi untuk menyisipkan pesan, atau ekstrak ciphertext dari gambar yang sudah diproses.");
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const page = document.body.dataset.page;
   if (page === "access") initializeAccessPage();
   if (page === "dashboard") initializeDashboard();
+  if (page === "steganography") initializeSteganographyPage();
 });

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1220">
+  <title>Steganografi Gambar — Universal Secure Locker</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="steg-page" data-page="steganography">
+  <main class="shell dashboard-shell">
+    <header class="topbar">
+      <a class="brand" href="dashboard.html" aria-label="Kembali ke dashboard">
+        <span class="brand-mark">USL</span>
+        <span>Universal <strong>Secure Locker</strong></span>
+      </a>
+      <div class="account-toolbar">
+        <a class="button button-secondary" href="dashboard.html">Dashboard</a>
+        <span class="active-account" id="active-username"></span>
+        <button class="button button-secondary logout-button" id="logout-button" type="button">Kunci aplikasi <span aria-hidden="true">↗</span></button>
+      </div>
+    </header>
+
+    <section class="dashboard-welcome">
+      <div class="closure-guide-character dashboard-guide-character">
+        <img src="assets/img/Closure_2.png" alt="Closure, pemandu Universal Secure Locker">
+      </div>
+      <div class="closure-dialogue dashboard-dialogue" role="status" aria-live="polite">
+        <div class="closure-dialogue-label"><span class="status-dot"></span> CLOSURE <span>• SECURE TERMINAL v1.0</span></div>
+        <p id="closure-dialogue">Gunakan ciphertext dari super enkripsi untuk menyisipkan pesan ke gambar PNG, atau ekstrak ciphertext dari gambar steganografi.</p>
+      </div>
+    </section>
+
+    <section class="card steg-intro">
+      <span class="eyebrow">STEGANOGRAFI GAMBAR</span>
+      <h1>Sembunyikan pesan dalam PNG</h1>
+      <p>Teknik LSB mengubah bit paling rendah kanal RGB. Pesan wajib berupa ciphertext heksadesimal; enkripsi pesan terlebih dahulu di <a href="dashboard.html#message-crypto-title">halaman super enkripsi</a>.</p>
+      <p class="steg-limit">Maksimal gambar 10 MiB dan 40 megapiksel. Simpan hasil sebagai PNG; mengubah ke JPEG atau mengedit gambar dapat merusak pesan tersembunyi.</p>
+    </section>
+
+    <div class="steg-grid">
+      <section class="card steg-card" aria-labelledby="hide-message-title">
+        <span class="step-badge">SISIPKAN CIPHERTEXT</span>
+        <h2 id="hide-message-title">Buat gambar steganografi</h2>
+        <form id="steg-hide-form">
+          <label class="form-field" for="steg-hide-image">
+            <span>Gambar PNG</span>
+            <input id="steg-hide-image" type="file" accept="image/png,.png" required>
+          </label>
+          <img class="steg-image-preview" id="steg-hide-preview" alt="Pratinjau gambar PNG" hidden>
+          <label class="form-field" for="steg-ciphertext">
+            <span>Ciphertext heksadesimal</span>
+            <textarea id="steg-ciphertext" rows="7" spellcheck="false" autocomplete="off" placeholder="Tempel ciphertext dari super enkripsi (0–9 dan a–f)" required></textarea>
+          </label>
+          <p class="steg-helper">Panjang ciphertext harus genap. Pastikan gambar memiliki kapasitas yang cukup untuk memuat seluruh pesan.</p>
+          <button class="button button-primary" id="steg-hide-button" type="submit">Sisipkan &amp; simpan PNG</button>
+          <p class="inline-message" id="steg-hide-message" role="status"></p>
+        </form>
+      </section>
+
+      <section class="card steg-card" aria-labelledby="reveal-message-title">
+        <span class="step-badge">EKSTRAK CIPHERTEXT</span>
+        <h2 id="reveal-message-title">Baca pesan tersembunyi</h2>
+        <form id="steg-reveal-form">
+          <label class="form-field" for="steg-reveal-image">
+            <span>Gambar PNG steganografi</span>
+            <input id="steg-reveal-image" type="file" accept="image/png,.png" required>
+          </label>
+          <img class="steg-image-preview" id="steg-reveal-preview" alt="Pratinjau gambar PNG" hidden>
+          <button class="button button-secondary" id="steg-reveal-button" type="submit">Ekstrak ciphertext</button>
+          <label class="form-field" for="steg-revealed-ciphertext">
+            <span>Ciphertext yang ditemukan</span>
+            <textarea id="steg-revealed-ciphertext" rows="7" readonly spellcheck="false" placeholder="Hasil ekstraksi akan tampil di sini"></textarea>
+          </label>
+          <button class="button button-secondary" id="steg-copy-button" type="button" disabled>Salin ciphertext</button>
+          <p class="inline-message" id="steg-reveal-message" role="status"></p>
+        </form>
+      </section>
+    </div>
+
+    <aside class="demo-notice">
+      <span aria-hidden="true">i</span>
+      <p><strong>Catatan keamanan.</strong> LSB menyembunyikan data secara visual, tetapi bukan pengganti enkripsi. Modul ini menerima teks heksadesimal dan tidak dapat memastikan pesan tersebut benar-benar terenkripsi.</p>
+    </aside>
+
+    <footer class="footer">
+      <span>Universal Secure Locker <span class="footer-separator">/</span> Steganografi lokal</span>
+      <span>PNG · LSB · Ciphertext</span>
+    </footer>
+  </main>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
