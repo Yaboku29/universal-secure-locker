@@ -54,6 +54,7 @@ Log menggunakan format waktu, level, dan nama logger, misalnya `INFO universal_s
 | Steganografi gambar | **Pillow** | Menyisipkan ciphertext heksadesimal ke bit LSB pada gambar PNG tanpa kompresi destruktif. |
 | Enkripsi file dokumen | **AES-256-GCM (`cryptography`)** | Mengenkripsi dokumen pada filesystem; kunci acak dilindungi DPAPI Windows. Gambar dikecualikan. |
 | Akun, izin, dan metadata | **SQLite melalui `sqlite3` bawaan Python** | Menyimpan akun, hash, metadata resource, dan izin per item di `storage/accounts.db`. |
+| Audit log | **Mini-blockchain SHA-256 + SQLite** | Menyimpan blok aktivitas berantai di database lokal dan memvalidasi integritas rantai. |
 | Konten file | **Filesystem lokal** | Menyimpan file di `storage/users/account-{id}-{username}/`; folder ini diabaikan Git. |
 | Faktor perangkat | **JSON dan model OpenCV lokal** | Menyimpan hash token USB dan model wajah pada folder `storage/`. |
 
@@ -71,20 +72,52 @@ Jangan memilih bilangan prima RSA 20–30 digit: ukuran tersebut terlalu kecil u
 
 ### Steganografi Gambar
 
-- Modul `backend/security/steganography.py` menyediakan `hide_message(image_path, secret_text, output_path)` dan `reveal_message(image_path)`.
+- Modul `backend/security/steganography.py` menyediakan `hide_message(image_path, secret_text, output_dir)` dan `reveal_message(image_path)`.
 - Hanya PNG yang didukung. Fungsi sisip menolak teks biasa dan menerima payload dalam format heksadesimal seperti ciphertext dari super enkripsi. Fungsi ini memvalidasi format ciphertext, tetapi tidak dapat membuktikan bahwa string heksadesimal benar-benar dienkripsi; enkripsi harus dilakukan lebih dulu melalui fitur super enkripsi.
 - Contoh pemakaian setelah memperoleh ciphertext di aplikasi:
 
   ```python
   from backend.security.steganography import hide_message, reveal_message
 
-  hide_message("foto.png", ciphertext, "foto-rahasia.png")
-  extracted_ciphertext = reveal_message("foto-rahasia.png")
+  result_path = hide_message("foto.png", ciphertext, "hasil")
+  extracted_ciphertext = reveal_message(result_path)
   ```
 
 - Kapasitas diperiksa sebelum menyisipkan. Tiap kanal warna RGB menyimpan satu bit dan nilai kanal berubah paling banyak satu; alpha dipertahankan. Maksimum ukuran gambar adalah 40 megapiksel dan payload dibatasi 64 KiB.
-- Halaman **Steganografi** tersedia dari tombol di dashboard. Halaman ini menyediakan formulir untuk menyisipkan ciphertext ke PNG (hasil disimpan melalui dialog lokasi native) dan mengekstrak ciphertext kembali. Hanya akun yang sedang login yang dapat menggunakan API tersebut.
+- Hasil disimpan langsung di folder tujuan dengan nama asli, misalnya `foto.png`. Jika nama sudah dipakai, digunakan `foto (1).png`, `foto (2).png`, dan seterusnya. Folder tujuan harus sudah ada.
+- Halaman **Steganografi** tersedia dari tombol di dashboard. Halaman ini menyediakan formulir untuk menyisipkan ciphertext ke PNG (folder tujuan dipilih melalui dialog native) dan mengekstrak ciphertext kembali. Hanya akun yang sedang login yang dapat menggunakan API tersebut.
 - Simpan hasil sebagai PNG. Mengubahnya ke JPG atau mengirimkannya melalui layanan yang mengubah ukuran/kompresi gambar dapat merusak pesan tersembunyi. LSB bukan perlindungan terhadap analisis steganografi; fitur ini bukan metode untuk menghindari pemantauan atau pemeriksaan keamanan.
+
+### Audit Mini-Blockchain
+
+- `backend/blockchain.py` menyediakan `MiniBlockchain(database_path)`, `add_audit_log(action_data)`, `get_chain()`, dan `is_chain_valid()`. Genesis Block dibuat otomatis saat tabel audit pertama kali diinisialisasi.
+- Setiap blok menyimpan index, timestamp UTC, action data, previous hash, dan SHA-256 hash atas seluruh field tersebut. Blok tersimpan di tabel `blockchain_blocks` pada SQLite aplikasi. `blockchain_state` menyimpan head ledger agar penghapusan blok terakhir juga terdeteksi.
+- Aplikasi mencatat aktivitas penting seperti verifikasi USB/wajah, login/logout, buka/simpan/perbarui file, unduh, izin, steganografi, catatan, dan enkripsi/dekripsi pesan. Isi pesan rahasia, password, ciphertext, dan kunci tidak ditambahkan ke audit log.
+- Rantai lokal bersifat *tamper-evident*, bukan blockchain terdistribusi atau bukti anti-pemalsuan terhadap admin/proses yang dapat mengubah database dan seluruh head ledger sekaligus. Database aplikasi sendiri dienkripsi saat terkunci.
+
+### Build Windows dengan PyInstaller
+
+Build dilakukan pada Windows dan memasukkan seluruh folder `frontend/` ke executable. Resource statis dicari melalui `get_resource_path()` di `main.py`; data yang dapat ditulis seperti `storage/` tetap berada di folder yang sama dengan `.exe`, bukan di folder ekstraksi sementara PyInstaller.
+
+1. Aktifkan virtual environment proyek.
+2. Pasang dependensi aplikasi dan build:
+
+   ```powershell
+   python -m pip install -r requirements-build.txt
+   ```
+
+3. Buat executable `onefile` tanpa jendela terminal dengan satu perintah:
+
+   ```powershell
+   python -m PyInstaller --noconfirm --clean --onefile --windowed --name UniversalSecureLocker --add-data "frontend;frontend" --collect-all webview --collect-all cv2 --collect-all PIL --collect-all argon2 --collect-all cryptography main.py
+   ```
+
+   Konfigurasi yang sama tersedia di `UniversalSecureLocker.spec`; jalankan `build_windows.bat` atau `python -m PyInstaller --noconfirm --clean UniversalSecureLocker.spec`. Hasilnya ada di `dist/UniversalSecureLocker.exe`.
+
+4. Salin `.exe` ke folder yang bisa ditulis oleh akun Windows yang menjalankannya. Aplikasi membuat `storage/` di sebelah `.exe` untuk database dan file akun. Jangan jalankan dari folder terlindungi seperti `Program Files` tanpa mengatur izin tulis.
+5. Backup folder `storage/` secara aman dan sediakan Windows WebView2 Runtime pada komputer tujuan.
+
+Opsi `--onefile` mengekstrak resource frontend ke direktori sementara saat mulai. Mode ini bukan perlindungan kode atau rahasia dari reverse engineering. Untuk startup lebih cepat dan pemeriksaan file lebih mudah, ganti `--onefile` dengan `--onedir`; konfigurasi spec juga dapat disesuaikan untuk distribusi folder.
 
 ### Enkripsi File Dokumen
 
@@ -179,10 +212,10 @@ Rincian latar belakang dan rancangan keseluruhan terdapat di [dokumen perancanga
 - Pendaftaran USB tidak menjalankan proses format. Aplikasi hanya membuat file token baru di folder utama USB yang dipilih. File yang sudah ada tidak ditimpa; jika file token dengan nama yang sama sudah ada, pendaftaran dibatalkan.
 - LBPH merupakan pengenal wajah sederhana, bukan sistem biometrik modern yang tahan spoofing. Prototipe ini tidak memiliki deteksi keaktifan (*liveness detection*), sehingga foto/video dapat berisiko mengecoh verifikasi. Nilai ambang pengenalan perlu diuji pada kondisi kamera yang beragam.
 - Model wajah dan konfigurasi disimpan lokal tanpa enkripsi pada tahap ini. Amankan komputer dan jangan membagikan folder `storage/`.
-- Hash password tidak dapat mengembalikan password asli. Dokumen umum dienkripsi AES-GCM saat tersimpan; database terenkripsi saat terkunci dan catatan/payload ledger terenkripsi pada kolom. Database kerja sementara tersedia saat aplikasi telah lolos USB dan wajah, sehingga malware atau proses yang berjalan sebagai pengguna Windows yang sama tetap dapat mengakses data selama sesi. Gambar yang dikecualikan dari enkripsi file tetap tidak dienkripsi. Amankan komputer dan backup folder `storage/` dengan hati-hati.
+- Hash password tidak dapat mengembalikan password asli. Dokumen umum dienkripsi AES-GCM saat tersimpan; database terenkripsi saat terkunci, sementara catatan dan payload transaksi mini-ledger dienkripsi pada kolom. Database kerja sementara tersedia saat aplikasi telah lolos USB dan wajah, sehingga malware atau proses yang berjalan sebagai pengguna Windows yang sama tetap dapat mengakses data selama sesi. Gambar yang dikecualikan dari enkripsi file tetap tidak dienkripsi. Amankan komputer dan backup folder `storage/` dengan hati-hati.
 - Izin akun berlaku saat mengakses aplikasi. Pengguna dengan akses OS langsung ke folder `storage/` dapat mengubah atau menghapus file; database memakai AES-GCM saat terkunci dan catatan transaksi memakai rantai hash, tetapi rantai hash lokal bukan blockchain terdistribusi dan bukan perlindungan terhadap admin/malware yang dapat mengubah database saat aplikasi terbuka.
 - Kamera hanya digunakan melalui aplikasi lokal; frame tidak dikirim ke layanan internet.
-- Dashboard menyimpan konten file pada `storage/users/` dan metadata/izin pada database SQLite. Saat aplikasi diperbarui, BLOB file lama yang masih berada di database akan dipindahkan otomatis ke folder akun; startup mengenkripsi dokumen lama dan backup database, `storage/users/`, serta `storage/file-encryption-key.dpapi` bersama-sama. Steganografi dan audit ledger belum dibuat.
+- Dashboard menyimpan konten file pada `storage/users/` dan metadata/izin/audit pada database SQLite. Saat aplikasi diperbarui, BLOB file lama yang masih berada di database akan dipindahkan otomatis ke folder akun; startup mengenkripsi dokumen lama. Backup database, `storage/users/`, dan `storage/file-encryption-key.dpapi` bersama-sama.
 - Super enkripsi teks sudah tersedia dengan urutan Caesar → Vigenere → XOR → RSA-OAEP. Implementasi ini untuk pembelajaran, bukan pengganti enkripsi file/database atau enkripsi terautentikasi.
 - Gunakan pustaka kriptografi teruji untuk fitur produksi. AES-GCM untuk enkripsi terautentikasi dan Argon2id untuk hash password; jangan mengimplementasikan algoritma kriptografi sendiri.
 

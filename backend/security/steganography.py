@@ -58,15 +58,15 @@ def _read_bits(pixels: bytes, channel_count: int, bit_count: int) -> bytes:
 def hide_message(
     image_path: str | Path,
     secret_text: str,
-    output_path: str | Path,
+    output_dir: str | Path,
 ) -> Path:
-    """Hide a super-encryption hex ciphertext in a lossless PNG image."""
+    """Hide ciphertext in a PNG and save it under its original filename."""
     source = Path(image_path)
-    destination = Path(output_path)
-    if not destination.suffix.lower() == ".png":
-        raise ValueError("File hasil steganografi harus menggunakan ekstensi .png.")
-    if source.resolve() == destination.resolve():
-        raise ValueError("Gambar sumber dan tujuan tidak boleh sama.")
+    destination_directory = Path(output_dir)
+    if not destination_directory.is_dir():
+        raise ValueError("Folder tujuan tidak ditemukan.")
+    if source.suffix.lower() != ".png":
+        raise ValueError("Steganografi hanya mendukung gambar PNG.")
 
     ciphertext = _validate_ciphertext(secret_text)
     if len(ciphertext) > 0xFFFFFFFF:
@@ -101,23 +101,48 @@ def hide_message(
         if "dpi" in image.info:
             save_options["dpi"] = image.info["dpi"]
 
-    destination.parent.mkdir(parents=True, exist_ok=True)
     temporary_path: Path | None = None
+    destination: Path | None = None
+    reserved_destination = False
     try:
         with tempfile.NamedTemporaryFile(
-            dir=destination.parent,
+            dir=destination_directory,
             prefix=".usl-steg-",
             suffix=".png",
             delete=False,
         ) as temporary_file:
             temporary_path = Path(temporary_file.name)
         output.save(temporary_path, format="PNG", **save_options)
+        destination = _unique_output_path(destination_directory, source.name)
+        reserved_destination = True
         os.replace(temporary_path, destination)
+        reserved_destination = False
     finally:
         output.close()
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
+        if reserved_destination and destination is not None:
+            destination.unlink(missing_ok=True)
+    if destination is None:
+        raise RuntimeError("Nama file hasil steganografi tidak dapat ditentukan.")
     return destination
+
+
+def _unique_output_path(output_dir: Path, filename: str) -> Path:
+    source_name = Path(filename)
+    duplicate_number = 0
+    while True:
+        candidate_name = (
+            source_name.name
+            if duplicate_number == 0
+            else f"{source_name.stem} ({duplicate_number}){source_name.suffix}"
+        )
+        candidate = output_dir / candidate_name
+        try:
+            with candidate.open("xb"):
+                return candidate
+        except FileExistsError:
+            duplicate_number += 1
 
 
 def reveal_message(image_path: str | Path) -> str:

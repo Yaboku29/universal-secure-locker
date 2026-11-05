@@ -1,10 +1,12 @@
 import base64
 import logging
+import sys
 import tempfile
 from pathlib import Path
 
 import webview
 
+from backend.blockchain import AuditBlock, MiniBlockchain
 from backend.database import AccountDatabase
 from backend.security.biometric_auth import BiometricAuth
 from backend.security.crypto_engine import SuperEncryption
@@ -31,6 +33,7 @@ class LockerApi:
         self._database_key = self.file_key_store.load_or_create()
         self._accounts: AccountDatabase | None = None
         self._database_workspace: tempfile.TemporaryDirectory[str] | None = None
+        self._blockchain: MiniBlockchain | None = None
         DatabaseFileEncryption.seal(self._database_path, self._database_key)
         self._usb_verified = False
         self._face_verified = False
@@ -101,6 +104,7 @@ class LockerApi:
         self._open_database()
         self._hardware_verified = True
         self.biometric.stop_camera()
+        self._add_audit_log("USB dan verifikasi wajah berhasil.")
         return True
 
     def _require_hardware_authentication(self) -> None:
@@ -133,6 +137,7 @@ class LockerApi:
             self.accounts = AccountDatabase(
                 self._storage_dir, database_path=working_database_path
             )
+            self._blockchain = MiniBlockchain(working_database_path)
             self._database_workspace = workspace
             self.accounts.activate_sensitive_data_encryption(self._database_key)
             try:
@@ -141,6 +146,7 @@ class LockerApi:
                 self.accounts.deactivate_file_encryption()
         except Exception:
             self._accounts = None
+            self._blockchain = None
             workspace.cleanup()
             raise
 
@@ -165,10 +171,32 @@ class LockerApi:
             self._database_path,
             self._database_key,
         )
+        self._blockchain = None
         self._accounts = None
         if self._database_workspace is not None:
             self._database_workspace.cleanup()
             self._database_workspace = None
+
+    def _add_audit_log(self, action_data: str) -> AuditBlock:
+        if self._blockchain is None:
+            raise PermissionError("Database audit belum dibuka.")
+        return self._blockchain.add_audit_log(action_data)
+
+    def add_audit_log(self, action_data: str) -> AuditBlock:
+        self._require_account_authentication()
+        return self._add_audit_log(action_data)
+
+    def get_audit_chain(self) -> list[AuditBlock]:
+        self._require_account_authentication()
+        if self._blockchain is None:
+            raise PermissionError("Database audit belum dibuka.")
+        return self._blockchain.get_chain()
+
+    def is_chain_valid(self) -> bool:
+        self._require_account_authentication()
+        if self._blockchain is None:
+            raise PermissionError("Database audit belum dibuka.")
+        return self._blockchain.is_chain_valid()
 
     def get_account_state(self) -> dict[str, bool]:
         self._require_hardware_authentication()
@@ -183,6 +211,7 @@ class LockerApi:
         self._current_account_id = int(account["id"])
         self._authenticated = True
         logger.info("Akun %s dibuat; admin=%s.", account["username"], account["is_admin"])
+        self._add_audit_log(f"Akun dibuat: {account['username']}.")
         return account
 
     def login_account(
@@ -194,6 +223,7 @@ class LockerApi:
         self._current_account_id = int(account["id"])
         self._authenticated = True
         logger.info("Akun %s berhasil login.", account["username"])
+        self._add_audit_log(f"Login akun berhasil: {account['username']}.")
         return account
 
     def is_authenticated(self) -> bool:
@@ -237,7 +267,7 @@ class LockerApi:
                 content = base64.b64decode(content_base64, validate=True)
             except ValueError as error:
                 raise ValueError("Isi file tidak valid.") from error
-        return self.accounts.create_resource(
+        resource_id = self.accounts.create_resource(
             account_id,
             name,
             kind,
@@ -245,11 +275,15 @@ class LockerApi:
             content,
             content_type,
         )
+        self._add_audit_log(f"Resource dibuat: {name} ({kind}).")
+        return resource_id
 
     def read_resource(self, resource_id: str) -> dict[str, str]:
+        account_id = self._require_account_authentication()
         data = self.accounts.read_file(
-            self._require_account_authentication(), resource_id
+            account_id, resource_id
         )
+        self._add_audit_log(f"Resource dilihat: {data['name']}.")
         return {
             "name": str(data["name"]),
             "content_type": str(data["content_type"]),
@@ -276,6 +310,7 @@ class LockerApi:
             data["name"],
             account_id,
         )
+        self._add_audit_log(f"File diunduh: {data['name']}.")
         return {"cancelled": False, "name": str(data["name"])}
 
     @staticmethod
@@ -288,6 +323,17 @@ class LockerApi:
             webview.FileDialog.SAVE,
             save_filename=filename,
             file_types=file_types,
+        )
+        if not selected_paths:
+            return None
+        return Path(selected_paths[0])
+
+    @staticmethod
+    def _select_output_directory() -> Path | None:
+        if not webview.windows:
+            raise RuntimeError("Dialog pemilihan folder tidak tersedia.")
+        selected_paths = webview.windows[0].create_file_dialog(
+            webview.FileDialog.FOLDER
         )
         if not selected_paths:
             return None
@@ -326,33 +372,22 @@ class LockerApi:
     ) -> dict[str, bool | str]:
         account_id = self._require_account_authentication()
         image_content = self._decode_steganography_image(image_base64, image_name)
-        output_name = f"{Path(image_name).stem}-stego.png"
+        destination_directory = self._select_output_directory()
+        if destination_directory is None:
+            return {"cancelled": True, "name": image_name}
         with tempfile.TemporaryDirectory(prefix="usl-steganography-") as directory:
             temporary_directory = Path(directory)
-            source_path = temporary_directory / "source.png"
-            output_path = temporary_directory / output_name
+            source_path = temporary_directory / image_name
             source_path.write_bytes(image_content)
-            hide_message(source_path, ciphertext, output_path)
-
-            destination = self._select_download_path(
-                output_name, ("PNG Image (*.png)",)
+            destination = hide_message(
+                source_path, ciphertext, destination_directory
             )
-            if destination is None:
-                return {"cancelled": True, "name": output_name}
-            if destination.suffix.lower() != ".png":
-                destination = destination.with_suffix(".png")
-            try:
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_bytes(output_path.read_bytes())
-            except OSError as error:
-                raise RuntimeError(
-                    "Gambar hasil steganografi tidak dapat disimpan."
-                ) from error
 
         logger.info(
             "Gambar steganografi berhasil dibuat untuk akun %s.",
             account_id,
         )
+        self._add_audit_log(f"Steganografi gambar dibuat: {destination.name}.")
         return {"cancelled": False, "name": destination.name}
 
     def reveal_steganographic_message(
@@ -363,7 +398,9 @@ class LockerApi:
         with tempfile.TemporaryDirectory(prefix="usl-steganography-") as directory:
             image_path = Path(directory) / "image.png"
             image_path.write_bytes(image_content)
-            return reveal_message(image_path)
+            ciphertext = reveal_message(image_path)
+        self._add_audit_log(f"Ciphertext diekstrak dari gambar: {image_name}.")
+        return ciphertext
 
     def update_resource(
         self,
@@ -390,26 +427,32 @@ class LockerApi:
             content,
             content_type,
         )
+        self._add_audit_log(f"Resource diperbarui: {name}.")
 
     def save_encrypted_message(self, message: str) -> str:
-        return self.accounts.save_encrypted_message(
-            self._require_account_authentication(), message
-        )
+        account_id = self._require_account_authentication()
+        name = self.accounts.save_encrypted_message(account_id, message)
+        self._add_audit_log(f"Ciphertext tersimpan: {name}.")
+        return name
 
     def save_secret_note(self, content: str) -> str:
-        return self.accounts.save_secret_note(
-            self._require_account_authentication(), content
-        )
+        account_id = self._require_account_authentication()
+        note_id = self.accounts.save_secret_note(account_id, content)
+        self._add_audit_log("Catatan rahasia tersimpan.")
+        return note_id
 
     def get_secret_notes(self) -> list[dict[str, str]]:
-        return self.accounts.get_secret_notes(
+        notes = self.accounts.get_secret_notes(
             self._require_account_authentication()
         )
+        self._add_audit_log(f"Catatan rahasia dibaca: {len(notes)} item.")
+        return notes
 
     def record_transaction(self, action: str, details: str) -> dict[str, int | str]:
-        return self.accounts.record_transaction(
-            self._require_account_authentication(), action, details
-        )
+        account_id = self._require_account_authentication()
+        block = self.accounts.record_transaction(account_id, action, details)
+        self._add_audit_log(f"Transaksi mini-ledger dicatat: {action}.")
+        return block
 
     def verify_transaction_chain(self) -> bool:
         self._require_account_authentication()
@@ -417,23 +460,29 @@ class LockerApi:
 
     def generate_rsa_key_pair(self) -> dict[str, str]:
         self._require_account_authentication()
-        return SuperEncryption.generate_rsa_key_pair()
+        key_pair = SuperEncryption.generate_rsa_key_pair()
+        self._add_audit_log("Key pair RSA dibuat.")
+        return key_pair
 
     def encrypt_message(
         self, plaintext: str, shift: int, key: str, public_key_pem: str
     ) -> str:
         self._require_account_authentication()
-        return SuperEncryption.encrypt_text(
+        ciphertext = SuperEncryption.encrypt_text(
             plaintext, shift, key, public_key_pem
         )
+        self._add_audit_log("Pesan dienkripsi.")
+        return ciphertext
 
     def decrypt_message(
         self, ciphertext: str, shift: int, key: str, private_key_pem: str
     ) -> str:
         self._require_account_authentication()
-        return SuperEncryption.decrypt_text(
+        plaintext = SuperEncryption.decrypt_text(
             ciphertext, shift, key, private_key_pem
         )
+        self._add_audit_log("Pesan didekripsi.")
+        return plaintext
 
     def set_resource_permissions(
         self,
@@ -451,8 +500,11 @@ class LockerApi:
             can_read,
             can_update,
         )
+        self._add_audit_log(f"Izin resource diperbarui: {resource_id}.")
 
     def logout(self) -> None:
+        if self._authenticated and self._blockchain is not None:
+            self._add_audit_log("Logout akun.")
         self._lock_database()
         self._authenticated = False
         self._current_account_id = None
@@ -479,11 +531,16 @@ def main() -> None:
     )
     logger.info("Universal Secure Locker dimulai.")
     project_dir = Path(__file__).resolve().parent
-    storage_dir = project_dir / "storage"
+    application_dir = (
+        Path(sys.executable).resolve().parent
+        if getattr(sys, "frozen", False)
+        else project_dir
+    )
+    storage_dir = application_dir / "storage"
     api = LockerApi(storage_dir)
     window = webview.create_window(
         "Universal Secure Locker",
-        (project_dir / "frontend" / "index.html").as_uri(),
+        get_resource_path("frontend/index.html").as_uri(),
         js_api=api,
         min_size=(960, 680),
         width=1180,
@@ -491,6 +548,13 @@ def main() -> None:
     )
     window.events.closed += api.shutdown
     webview.start()
+
+
+def get_resource_path(relative_path: str | Path) -> Path:
+    bundle_root = Path(
+        getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)
+    )
+    return bundle_root / relative_path
 
 
 if __name__ == "__main__":

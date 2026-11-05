@@ -10,7 +10,7 @@ from backend.database import AccountDatabase
 from backend.security.database_crypto import DatabaseFileEncryption
 from backend.security.file_crypto import FileEncryption
 from backend.security.file_key_store import WindowsFileKeyStore
-from main import LockerApi, webview
+from main import LockerApi, get_resource_path, webview
 
 
 class BiometricStub:
@@ -35,6 +35,7 @@ class AccountApiTests(unittest.TestCase):
         self.api._database_key = self.api.file_key_store.load_or_create()
         self.api._database_workspace = None
         self.api._accounts = self.database
+        self.api._blockchain = None
         self.api.biometric = BiometricStub()
         self.api._usb_verified = False
         self.api._face_verified = False
@@ -86,6 +87,9 @@ class AccountApiTests(unittest.TestCase):
         )
         self.assertTrue(self.api.is_authenticated())
         self.assertEqual(self.api.get_current_account()["username"], "first-user")
+        audit_chain = self.api.get_audit_chain()
+        self.assertEqual(audit_chain[0]["action_data"], "Genesis Block")
+        self.assertTrue(self.api.is_chain_valid())
         note_id = self.api.save_secret_note("API catatan rahasia")
         self.assertEqual(self.api.get_secret_notes()[0]["id"], note_id)
         transaction = self.api.record_transaction("create-note", note_id)
@@ -170,24 +174,46 @@ class AccountApiTests(unittest.TestCase):
             file_types=(),
         )
 
-    def test_steganography_api_saves_and_reveals_encrypted_text(self) -> None:
+    def test_steganography_folder_picker_uses_native_folder_dialog(self) -> None:
+        selected_directory = Path(self.temporary_directory.name)
+        window = Mock()
+        window.create_file_dialog.return_value = (str(selected_directory),)
+        with patch("main.webview.windows", [window]):
+            result = self.api._select_output_directory()
+
+        self.assertEqual(result, selected_directory)
+        window.create_file_dialog.assert_called_once_with(
+            webview.FileDialog.FOLDER
+        )
+
+    def test_resource_path_uses_pyinstaller_bundle_root(self) -> None:
+        bundle_root = Path(self.temporary_directory.name) / "bundle"
+        with patch("main.sys._MEIPASS", str(bundle_root), create=True):
+            self.assertEqual(
+                get_resource_path("frontend/index.html"),
+                bundle_root / "frontend" / "index.html",
+            )
+
+    def test_steganography_api_saves_original_name_and_reveals_text(self) -> None:
         self.api._usb_verified = True
         self.api._face_verified = True
         self.api.complete_hardware_authentication()
         self.api.create_account("steg-user", "steg-password-123")
         image_path = Path(self.temporary_directory.name) / "cover.png"
-        output_path = Path(self.temporary_directory.name) / "cover-stego.png"
+        output_directory = Path(self.temporary_directory.name) / "exports"
+        output_directory.mkdir()
+        output_path = output_directory / "cover.png"
         Image.new("RGB", (64, 64), (80, 120, 160)).save(image_path)
         image_base64 = base64.b64encode(image_path.read_bytes()).decode("ascii")
         with patch.object(
-            self.api, "_select_download_path", return_value=output_path
+            self.api, "_select_output_directory", return_value=output_directory
         ) as select_path:
             result = self.api.hide_steganographic_message(
                 image_base64, "cover.png", "a1b2c3d4"
             )
 
         self.assertEqual(
-            result, {"cancelled": False, "name": "cover-stego.png"}
+            result, {"cancelled": False, "name": "cover.png"}
         )
         self.assertEqual(
             self.api.reveal_steganographic_message(
@@ -196,9 +222,7 @@ class AccountApiTests(unittest.TestCase):
             ),
             "a1b2c3d4",
         )
-        select_path.assert_called_once_with(
-            "cover-stego.png", ("PNG Image (*.png)",)
-        )
+        select_path.assert_called_once_with()
 
     def test_account_creation_and_login_are_blocked_after_logout(self) -> None:
         self.api._usb_verified = True
