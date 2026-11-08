@@ -482,6 +482,9 @@ async function initializeDashboard() {
   let itemToShare = null;
   let resourceToDownload = null;
   let previewObjectUrl = null;
+  const auditPageSize = 20;
+  let auditBlocks = [];
+  let auditPage = 0;
 
   function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
@@ -662,6 +665,125 @@ async function initializeDashboard() {
       showVaultError(error);
     }
   }
+
+  function renderAuditChain() {
+    const auditContainer = $("#audit-chain");
+    const pagination = $("#audit-pagination");
+    const startIndex = auditPage * auditPageSize;
+    const visibleBlocks = auditBlocks.slice(
+      startIndex,
+      startIndex + auditPageSize,
+    );
+    auditContainer.replaceChildren();
+
+    for (const block of visibleBlocks) {
+      const card = document.createElement("article");
+      card.className = "audit-block";
+
+      const heading = document.createElement("div");
+      heading.className = "audit-block-heading";
+      const title = document.createElement("h3");
+      title.textContent = `Blok #${block.index}`;
+      const timestamp = document.createElement("time");
+      timestamp.dateTime = block.timestamp;
+      timestamp.textContent = block.timestamp;
+      heading.append(title, timestamp);
+
+      const action = document.createElement("p");
+      action.className = "audit-action";
+      action.textContent = block.action_data;
+
+      const hashes = document.createElement("dl");
+      hashes.className = "audit-hashes";
+      for (const [label, value] of [
+        ["Previous hash", block.previous_hash],
+        ["SHA-256 hash", block.hash],
+      ]) {
+        const row = document.createElement("div");
+        const term = document.createElement("dt");
+        term.textContent = label;
+        const description = document.createElement("dd");
+        const code = document.createElement("code");
+        code.textContent = value;
+        description.append(code);
+        row.append(term, description);
+        hashes.append(row);
+      }
+
+      card.append(heading, action, hashes);
+      auditContainer.append(card);
+    }
+
+    const endIndex = Math.min(startIndex + visibleBlocks.length, auditBlocks.length);
+    $("#audit-page-label").textContent = auditBlocks.length
+      ? `Blok ${startIndex + 1}–${endIndex} dari ${auditBlocks.length}`
+      : "Belum ada blok";
+    $("#audit-previous-button").disabled = auditPage === 0;
+    $("#audit-next-button").disabled = endIndex >= auditBlocks.length;
+    pagination.hidden = auditBlocks.length <= auditPageSize;
+  }
+
+  async function loadAuditChain() {
+    const refreshButton = $("#refresh-audit-button");
+    const integrity = $("#audit-integrity");
+    refreshButton.disabled = true;
+    integrity.dataset.state = "checking";
+    integrity.textContent = "Memeriksa integritas…";
+    showMessage($("#audit-message"), "Memuat blok audit…");
+
+    try {
+      const [chain, isValid] = await Promise.all([
+        callApi("get_audit_chain"),
+        callApi("is_chain_valid"),
+      ]);
+      if (!Array.isArray(chain) || typeof isValid !== "boolean") {
+        throw new Error("Respons audit blockchain tidak valid.");
+      }
+      auditBlocks = chain;
+      auditPage = Math.min(
+        auditPage,
+        Math.max(0, Math.ceil(auditBlocks.length / auditPageSize) - 1),
+      );
+      integrity.dataset.state = isValid ? "valid" : "invalid";
+      integrity.textContent = isValid
+        ? "Integritas valid"
+        : "Integritas tidak valid";
+      $("#audit-block-count").textContent =
+        `${auditBlocks.length} blok tersimpan`;
+      renderAuditChain();
+      showMessage(
+        $("#audit-message"),
+        isValid
+          ? "Hash setiap blok dan tautan antarblok berhasil diverifikasi."
+          : "Pemeriksaan menemukan ketidaksesuaian. Rantai audit mungkin telah diubah.",
+        isValid ? "success" : "error",
+      );
+    } catch (error) {
+      auditBlocks = [];
+      auditPage = 0;
+      integrity.dataset.state = "invalid";
+      integrity.textContent = "Verifikasi gagal";
+      $("#audit-block-count").textContent = "Data tidak tersedia";
+      renderAuditChain();
+      showMessage($("#audit-message"), error.message, "error");
+    } finally {
+      refreshButton.disabled = false;
+    }
+  }
+
+  $("#refresh-audit-button").addEventListener("click", loadAuditChain);
+  $("#audit-previous-button").addEventListener("click", () => {
+    if (auditPage > 0) {
+      auditPage -= 1;
+      renderAuditChain();
+    }
+  });
+  $("#audit-next-button").addEventListener("click", () => {
+    if ((auditPage + 1) * auditPageSize < auditBlocks.length) {
+      auditPage += 1;
+      renderAuditChain();
+    }
+  });
 
   async function openSharingDialog(resource) {
     itemToShare = resource;
@@ -1014,7 +1136,7 @@ async function initializeDashboard() {
     }
   });
 
-  await loadVault();
+  await Promise.all([loadVault(), loadAuditChain()]);
 }
 
 async function initializeSteganographyPage() {

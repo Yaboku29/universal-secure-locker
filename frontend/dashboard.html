@@ -16,6 +16,7 @@
       </a>
       <div class="account-toolbar">
         <a class="button button-secondary" href="steganography.html">Steganografi</a>
+        <a class="button button-secondary" href="#audit-ledger">Blockchain</a>
         <span class="active-account" id="active-username"></span>
         <button class="button button-secondary logout-button" id="logout-button" type="button">Kunci aplikasi <span aria-hidden="true">↗</span></button>
       </div>
@@ -120,6 +121,29 @@
     <section class="demo-notice">
       <span aria-hidden="true">i</span>
       <p><strong>Izin per item.</strong> Lihat, ubah, dan buat isi folder harus diberikan pemilik/admin pada folder atau file yang sesuai. Izin folder tidak otomatis diwariskan ke item anak.</p>
+    </section>
+
+    <section class="card audit-panel" id="audit-ledger" aria-labelledby="audit-title">
+      <div class="audit-heading">
+        <div>
+          <span class="eyebrow">AUDIT LOG • SHA-256</span>
+          <h2 id="audit-title">Rantai Audit Blockchain</h2>
+        </div>
+        <button class="button button-secondary" id="refresh-audit-button" type="button">Perbarui &amp; verifikasi</button>
+      </div>
+      <p class="audit-description">Riwayat aktivitas disimpan sebagai blok berantai di database lokal. Setiap hash mencakup data blok dan hash blok sebelumnya.</p>
+      <div class="audit-summary" aria-live="polite">
+        <span class="audit-integrity" id="audit-integrity" data-state="unknown">Belum diverifikasi</span>
+        <span class="audit-count" id="audit-block-count">Belum dimuat</span>
+      </div>
+      <p class="inline-message" id="audit-message" role="status"></p>
+      <div class="audit-chain" id="audit-chain" aria-live="polite"></div>
+      <div class="audit-pagination" id="audit-pagination" hidden>
+        <button class="button button-secondary" id="audit-previous-button" type="button">← Sebelumnya</button>
+        <span id="audit-page-label"></span>
+        <button class="button button-secondary" id="audit-next-button" type="button">Berikutnya →</button>
+      </div>
+      <p class="audit-note">Rantai ini menjadi bukti implementasi audit log yang terhubung, tetapi bukan blockchain terdistribusi. Pemeriksaan dilakukan terhadap hash blok dan tautan antarblok.</p>
     </section>
 
     <dialog class="app-dialog" id="share-dialog">

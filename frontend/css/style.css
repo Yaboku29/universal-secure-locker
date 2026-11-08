@@ -1261,6 +1261,153 @@ body.camera-preview-floating .camera-frame {
   font-size: 18px;
 }
 
+.audit-panel {
+  margin-top: 18px;
+  padding: 20px;
+  scroll-margin-top: 18px;
+}
+
+.audit-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.audit-heading h2 {
+  margin: 7px 0 0;
+  font-family: Manrope, "Segoe UI", sans-serif;
+  font-size: 19px;
+  letter-spacing: -0.03em;
+}
+
+.audit-description,
+.audit-note {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.audit-description {
+  margin: 10px 0;
+}
+
+.audit-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.audit-integrity,
+.audit-count {
+  padding: 7px 10px;
+  border: 1px solid #34425a;
+  border-radius: 8px;
+  background: rgb(12 20 33 / 55%);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.audit-integrity[data-state="valid"] {
+  border-color: #527a56;
+  color: #a7d6a0;
+}
+
+.audit-integrity[data-state="invalid"] {
+  border-color: var(--danger);
+  color: #ff918b;
+}
+
+.audit-integrity[data-state="checking"] {
+  border-color: #8d7a38;
+  color: var(--accent);
+}
+
+.audit-chain {
+  display: grid;
+  gap: 10px;
+}
+
+.audit-block {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #28364b;
+  border-radius: 10px;
+  background: rgb(12 20 33 / 55%);
+}
+
+.audit-block-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.audit-block-heading h3 {
+  margin: 0;
+  color: #e8edf7;
+  font-size: 12px;
+}
+
+.audit-block-heading time {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.audit-action {
+  margin: 9px 0;
+  color: #e8edf7;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.audit-hashes {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.audit-hashes > div {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.audit-hashes dt {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.audit-hashes dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.audit-hashes code {
+  color: #b6c8df;
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.audit-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.audit-note {
+  margin: 12px 0 0;
+}
+
 .permission-options {
   display: grid;
   gap: 10px;
@@ -1462,6 +1609,7 @@ body.camera-preview-floating .camera-frame {
 
   .dashboard-shell > .vault-panel,
   .dashboard-shell > .message-crypto-panel,
+  .dashboard-shell > .audit-panel,
   .dashboard-shell > .steg-intro,
   .dashboard-shell > .steg-grid,
   .dashboard-shell > .demo-notice,
@@ -1617,6 +1765,7 @@ body.camera-preview-floating .camera-frame {
 
   .dashboard-shell > .vault-panel,
   .dashboard-shell > .message-crypto-panel,
+  .dashboard-shell > .audit-panel,
   .dashboard-shell > .steg-intro,
   .dashboard-shell > .steg-grid,
   .dashboard-shell > .demo-notice,
