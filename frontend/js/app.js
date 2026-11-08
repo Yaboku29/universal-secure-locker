@@ -47,6 +47,7 @@ async function initializeAccessPage() {
   let frameTimer = null;
   let frameRequestRunning = false;
   let enrolledSampleCount = 0;
+  let accountExists = false;
 
   async function refreshStatus() {
     const status = await callApi("get_status");
@@ -89,9 +90,12 @@ async function initializeAccessPage() {
       : "Masuk ke akun";
     $("#account-auth-description").textContent = signingUp
       ? hasAccounts
-        ? "Buat akun. Akses ke folder dan file diberikan secara terpisah."
-        : "Akun pertama menjadi admin. Anda dapat membuat akun lain setelahnya."
+        ? "Akun yang didaftarkan setelah akun pertama menjadi User biasa."
+        : "Ini akun pertama, jadi otomatis mendapat peran Admin."
       : "Masuk dengan username dan password akun Anda.";
+    $("#account-policy-note").textContent = hasAccounts
+      ? "Pendaftaran mandiri membuat User biasa, bukan Admin. User mengakses file miliknya sendiri dan file yang dibagikan kepadanya. Admin dapat mengatur izin, tetapi tidak otomatis dapat membaca file akun lain."
+      : "Akun pertama di database ini otomatis menjadi Admin agar dapat mengelola izin berbagi. Peran ditentukan aplikasi dan tidak bisa dipilih pada formulir. Admin pun tidak otomatis dapat membaca file akun lain.";
     $("#account-login-mode").hidden = !hasAccounts;
     $("#account-message").textContent = "";
     $("#account-message").classList.remove("is-error", "is-success");
@@ -117,16 +121,17 @@ async function initializeAccessPage() {
     backToBiometricsButton.hidden = false;
     $("#account-closure-guide").hidden = false;
     const accountState = await callApi("get_account_state");
-    setAccountMode(accountState.has_accounts ? "login" : "signup", accountState.has_accounts);
+    accountExists = accountState.has_accounts;
+    setAccountMode(accountExists ? "login" : "signup", accountExists);
     guideClosure(
-      accountState.has_accounts
+      accountExists
         ? "USB dan wajah cocok! Sekarang masukkan username dan password akun yang ingin Anda buka."
         : "USB dan wajah cocok! Belum ada akun. Buat akun pertama; akun tersebut akan menjadi admin.",
     );
   }
 
   async function openDashboard(account, verb) {
-    const accountRole = account.is_admin ? "Admin" : "Akun";
+    const accountRole = account.is_admin ? "Admin" : "User biasa";
     showMessage(
       accountMessage,
       `${verb} sebagai ${account.username}${account.is_admin ? " (admin)" : ""}.`,
@@ -349,10 +354,10 @@ async function initializeAccessPage() {
   });
 
   $("#account-login-mode").addEventListener("click", () => {
-    setAccountMode("login", true);
+    setAccountMode("login", accountExists);
   });
   $("#account-signup-mode").addEventListener("click", () => {
-    setAccountMode("signup", true);
+    setAccountMode("signup", accountExists);
   });
 
   backToBiometricsButton.addEventListener("click", async () => {
@@ -464,7 +469,7 @@ async function initializeDashboard() {
 
   const account = await callApi("get_current_account");
   $("#active-username").textContent =
-    `${account.username}${account.is_admin ? " · ADMIN" : ""}`;
+    `${account.username}${account.is_admin ? " · ADMIN" : " · USER"}`;
   guideClosure(
     `Selamat datang, ${account.username}! Anda hanya akan melihat folder dan file yang dimiliki atau dibagikan khusus ke akun ini.`,
   );
@@ -1153,7 +1158,7 @@ async function initializeSteganographyPage() {
 
   const account = await callApi("get_current_account");
   $("#active-username").textContent =
-    `${account.username}${account.is_admin ? " · ADMIN" : ""}`;
+    `${account.username}${account.is_admin ? " · ADMIN" : " · USER"}`;
   const hideForm = $("#steg-hide-form");
   const revealForm = $("#steg-reveal-form");
   const hideInput = $("#steg-hide-image");

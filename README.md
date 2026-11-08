@@ -16,9 +16,13 @@ Closure tampil sebagai pemandu dengan bubble dialog yang menyambut pengguna dan 
 ## Login Akun dan Pembagian Akses
 
 - Setelah USB dan wajah cocok, pilih **Buat akun** atau **Masuk**. Password minimal 10 karakter dan disimpan sebagai hash Argon2id di `storage/accounts.db`; password asli tidak disimpan.
-- Akun pertama otomatis menjadi admin. Pendaftaran mandiri untuk akun berikutnya tetap tersedia, tetapi akun baru hanya dapat melihat file miliknya sendiri sampai pemilik atau admin memberinya izin.
+- **Akun pertama yang berhasil dibuat di database aplikasi otomatis menjadi Admin.** Ini aturan aplikasi, bukan role yang dipilih pengguna: Admin awal disediakan agar ada akun yang dapat mengelola izin berbagi item. Ketika formulir pendaftaran dibuat, database menghitung jumlah akun di dalam transaksi; hanya jika jumlahnya `0`, akun baru diberi `is_admin = true`.
+- **Semua akun yang didaftarkan setelah akun pertama menjadi User biasa** (`is_admin = false`). Pendaftaran mandiri tidak menyediakan pilihan untuk menjadi Admin. Sebagai contoh, akun pertama `anand` menjadi Admin; akun berikutnya `budi` dan `siti` menjadi User biasa.
+- Pendaftaran akun berikutnya tetap terbuka. User biasa dapat mengakses file miliknya sendiri dan file/folder yang secara eksplisit dibagikan kepadanya; jika belum diberi izin, ia tidak dapat melihat item akun lain.
+- Admin dapat mengatur izin pada item, tetapi status Admin **tidak** otomatis memberikan hak untuk membaca semua konten. Untuk membuka file milik akun lain, Admin juga harus memiliki izin lihat pada file dan folder induknya seperti pengguna lain.
+- USB dan wajah adalah faktor perangkat bersama untuk instalasi lokal; keduanya tidak menentukan peran akun. Peran ditetapkan saat akun dibuat dan ditampilkan sebagai `ADMIN` atau `USER` di dashboard. Tidak ada kontrol penggantian peran di antarmuka saat ini.
 - USB dan model wajah tetap menjadi lapisan perangkat bersama untuk instalasi lokal ini. Username/password tahap kedua menentukan akun dan izin data yang digunakan.
-- Admin dapat mengatur izin pada item yang dikelola, tetapi status admin sendiri **tidak** memberikan akses baca ke seluruh isi vault. Pemilik file/folder juga dapat membagikan item miliknya.
+- Pemilik file/folder juga dapat membagikan item miliknya kepada akun lain.
 - Hak akses ditetapkan pada tiap item dan tidak diwariskan. Untuk membuka file di dalam folder bersama, penerima perlu hak **lihat** pada seluruh folder induk dan hak **lihat** pada file tersebut. Untuk membuat item di folder bersama, penerima perlu hak **lihat** dan **buat** di folder itu.
 - Hak **ubah** otomatis menyertakan hak **lihat**. Izin dapat dicabut dengan menghilangkan semua centang lalu menyimpan.
 - Tombol **Lihat** membuka preview file. Untuk setiap unduhan, tekan **Unduh** di bagian atas preview lalu verifikasi dengan password akun; setelah itu dialog simpan native akan meminta lokasi file. Membatalkan dialog tidak menyimpan file. Password yang salah tidak mengirimkan file.
